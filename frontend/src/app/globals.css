@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@theme {
+  /* Core Studio & Ticketing Palette */
+  --color-ivory: #f7f7f5;
+  --color-paper: #ffffff;
+  --color-studio: #0f1117;
+  --color-studio-panel: #181b24;
+  --color-studio-line: #2a2f3d;
+  --color-accent: #e14d2a;
+  --color-accent-deep: #c53c1b;
+  --color-sage: #cbd5e1;
+  --color-sage-soft: #eef0f4;
+  --color-forest: #111827;
+  --color-forest-deep: #0b0d13;
+  --color-gold: #d4a853;
+  --color-ink: #111827;
+  --color-muted: #525866;
+  --color-line: #e2e4e9;
+  --color-danger: #dc2626;
+  --font-sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Noto Sans", "Noto Sans Sinhala", "Noto Sans Tamil", Arial, sans-serif;
+  --font-display: ui-serif, Georgia, "Times New Roman", serif;
+}
+
+html { scroll-behavior: smooth; }
+body { background: var(--color-ivory); color: var(--color-ink); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; border-radius: 2px; }
+
+/* Scroll reveal: transform/opacity only. Content is visible by default (SSR/no-JS). */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal { transition: opacity .7s cubic-bezier(.22,.8,.3,1), transform .7s cubic-bezier(.22,.8,.3,1); }
+  .reveal[data-state="hidden"] { opacity: 0; transform: translateY(24px); }
+  .reveal[data-state="shown"] { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .reveal { opacity: 1 !important; transform: none !important; }
+}
+
+.container-x { margin-inline: auto; width: 100%; max-width: 76rem; padding-inline: 1.25rem; }
+@media (min-width: 768px) { .container-x { padding-inline: 2rem; } }
+
+/* Subtle studio architectural grid for canvas backdrops */
+.studio-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 28px 28px;
+}

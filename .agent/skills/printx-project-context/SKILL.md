@@ -1,10 +1,10 @@
-﻿---
+---
 name: printx-project-context
 description: Core context for the Print X platform (print shop, event ticketing, animated wedding invitations). Use at the start of any task in this repo to align with scope, stack, brand, roles and definition of done.
 ---
 
 # Print X – Project Context
-Source of truth: `PrintX_Visual_Master_Plan.md` (companions: `PrintX_SRS_v1.md`, `PrintX_PostgreSQL_Schema_v1.sql` if present). Read the plan before large changes.
+Source of truth: `docs/PrintX_Visual_Master_Plan.md` (companions: `PrintX_SRS_v1.md`, `PrintX_PostgreSQL_Schema_v1.sql` if present). Read the plan before large changes.
 
 ## Scope
 One website (`printxads.lk`, Sri Lanka, LKR), three experiences: Print shop, Event ticketing (guest checkout, no account), Animated wedding invitations. One staff admin system.
