@@ -1,0 +1,407 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#334b45"><title>Print X — Visual Master Plan</title><style>
+:root{--ink:#263c35;--muted:#62746d;--line:#dce5dc;--paper:#f7f5ef;--sage:#8faf9e;--gold:#d1b58a}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#eef2ed;color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;line-height:1.66}main{max-width:1080px;margin:42px auto;background:#fff;border:1px solid #e6ebe5;border-radius:25px;box-shadow:0 24px 70px #263c3516;padding:60px 75px}h1{letter-spacing:-.055em;font-size:clamp(52px,7vw,86px);margin:0;color:#263c35;line-height:1.05}h1+ h3{font-weight:500;font-size:22px;color:#71867a;margin:12px 0 22px}h2{font-size:31px;letter-spacing:-.04em;margin:55px 0 18px;padding-top:15px;border-top:1px solid var(--line)}h3{font-size:20px;margin-top:28px}p,li{font-size:15px}strong{color:#203a30}blockquote{border-left:4px solid var(--sage);margin:24px 0;padding:8px 20px;background:#f3f7f2;border-radius:0 12px 12px 0}table{width:100%;border-collapse:separate;border-spacing:0;margin:20px 0 28px;font-size:13.5px;border:1px solid var(--line);border-radius:13px;overflow:hidden}th{background:#e9f0e9;text-align:left;color:#2c4d3d;font-size:12px;text-transform:uppercase;letter-spacing:.045em}th,td{padding:13px 14px;border-bottom:1px solid var(--line);vertical-align:top}tr:last-child td{border-bottom:0}tr:nth-child(even) td{background:#fbfcf9}hr{border:0;border-top:1px solid #dfebdf;margin:38px 0}code{background:#edf3ee;color:#385a4a;padding:2px 5px;border-radius:4px}pre{background:#172c25;color:#e6f1e9;padding:20px;overflow:auto;border-radius:12px;font-size:12px;line-height:1.5}pre code{background:transparent;color:inherit}a{color:#477f63}ul,ol{padding-left:22px}li{margin:6px 0}.mast{display:flex;justify-content:space-between;gap:15px;align-items:center;font-size:12px;color:#60746a;margin-bottom:35px}.mark{font-weight:800;letter-spacing:-.055em;font-size:23px;color:#294d39}.pill{background:#e5efe6;border:1px solid #c8dacb;border-radius:999px;padding:7px 14px}.hero{height:9px;background:linear-gradient(90deg,#8faf9e,#d1b58a,#ebeee2);border-radius:999px;margin:24px 0 36px}.foot{text-align:center;color:#799081;font-size:12px;margin-bottom:50px}section{break-inside:avoid}::selection{background:#c8e1d0}@media(max-width:730px){main{margin:0;border-radius:0;padding:28px 19px}h2{font-size:25px}table{display:block;overflow-x:auto;white-space:normal}th,td{min-width:145px}.mast{margin-bottom:20px}}@media print{body{background:white}main{margin:0;max-width:none;box-shadow:none;border:0;padding:15mm}h2{break-after:avoid}table{break-inside:avoid}pre{white-space:pre-wrap}a{text-decoration:none}}
+</style></head><body><main><div class="mast"><span class="mark">PRINT<span style="color:#8faf9e">X</span></span><span class="pill">SYSTEM BLUEPRINT · V1.0</span></div><div class="hero"></div><h1>PRINT X</h1>
+<h3>The Digital Print • Events • Invitations Platform</h3>
+<blockquote>
+<p><strong>Product &amp; Development Master Plan</strong><br />
+<strong>Edition:</strong> 1.0 · <strong>Status:</strong> Proposed implementation roadmap · <strong>Website:</strong> <code>printxads.lk</code> · <strong>Market:</strong> Sri Lanka · <strong>Currency:</strong> LKR</p>
+</blockquote>
+<hr />
+<h2>The big picture</h2>
+<p><strong>One welcoming website. Three customer experiences. One reliable operations system.</strong></p>
+<table>
+<thead>
+<tr>
+  <th style="text-align:left">🖨️ PRINT SHOP</th>
+  <th style="text-align:left">🎟️ EVENT TICKETING</th>
+  <th style="text-align:left">💌 E-INVITATIONS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td style="text-align:left">Browse products, customize sizes and finishes, upload artwork, pay and track print jobs.</td>
+  <td style="text-align:left">Buy external-organizer event tickets <strong>without an account</strong>, receive QR tickets and get checked in.</td>
+  <td style="text-align:left">Open cinematic, animated, personally addressed wedding pages with RSVP and map links.</td>
+</tr>
+<tr>
+  <td style="text-align:left"><strong>Business objective:</strong> convert inquiries into trackable orders.</td>
+  <td style="text-align:left"><strong>Business objective:</strong> sell accurately and settle organizers transparently.</td>
+  <td style="text-align:left"><strong>Business objective:</strong> deliver unique premium digital experiences at scale.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Visual personality:</strong> warm ivory <code>#F7F5EF</code> · botanical sage <code>#8FAF9E</code> · deep forest <code>#334B45</code> · restrained gold <code>#D1B58A</code>. Large whitespace, confident typography, gentle motion, accessible contrast.</p>
+<h3>A customer's journey</h3>
+<pre><code class="language-mermaid">flowchart LR
+    A[Visit Print X] --&gt; B{Choose service}
+    B --&gt; C[Print products]
+    B --&gt; D[Event tickets]
+    B --&gt; E[Wedding invitations]
+    C --&gt; F[Checkout / quote]
+    D --&gt; G[Guest checkout]
+    E --&gt; H[Personalized experience]
+    F --&gt; I[Shared secure platform]
+    G --&gt; I
+    H --&gt; I
+    I --&gt; J[Staff, payments &amp; notifications]
+</code></pre>
+<hr />
+<h2>01 · Print shop — from design to delivery</h2>
+<p><strong>Discover → Customize → Upload/WhatsApp → Quote or pay → Proof approval → Production → Pickup/delivery</strong></p>
+<p><strong>Customer-facing essentials</strong></p>
+<ul>
+<li>Product catalog, category filters, examples and searchable specifications.</li>
+<li>Size, width/height, quantity, material, finishing and responsive price calculator.</li>
+<li>File upload with format, dimensions, resolution and bleed guidance; WhatsApp inquiry with order reference.</li>
+<li>Saved cart, guest checkout, clear delivery/pickup costs and order status tracking.</li>
+<li>Print proof approval before production; explicit customer approval version and timestamp.</li>
+</ul>
+<p><strong>Back-office essentials</strong></p>
+<ul>
+<li>Staff quotation approval for unusual jobs, product price rules and material choices.</li>
+<li>Production queue: <code>new → artwork review → awaiting proof approval → ready to print → printing → ready → delivered</code>.</li>
+<li>Artworks in private object storage with expiring download URLs; file size/type controls and malware checks.</li>
+</ul>
+<blockquote>
+<p><strong>Launch principle:</strong> never start an irreversible print job before the customer approves the final artwork where a proof is required.</p>
+</blockquote>
+<hr />
+<h2>02 · Event ticketing — fast for guests, precise for finance</h2>
+<p><strong>The buyer never creates an account.</strong> Ask only for necessary name, email, WhatsApp contact and event/billing details.</p>
+<h3>Ticket journey</h3>
+<pre><code class="language-mermaid">flowchart TD
+    A[Pick organizer event] --&gt; B[Choose ticket type &amp; quantity]
+    B --&gt; C[Short inventory hold]
+    C --&gt; D[Guest details + payment]
+    D --&gt; E{Payment method}
+    E --&gt;|Card| F[Gateway callback + server verification]
+    E --&gt;|Bank transfer| G[Staff reconciliation or trusted bank feed]
+    F --&gt; H{Verified &amp; policy approved?}
+    G --&gt; H
+    H --&gt;|Yes| I[Atomic ticket issue + QR tokens]
+    H --&gt;|No| J[Pending / failed / exception queue]
+    I --&gt; K[Email + WhatsApp notification queue]
+    K --&gt; L[Event-day QR validation]
+</code></pre>
+<p><strong>Organizer-side records:</strong> organizer profile, agreement, each event, ticket tiers, per-event approval mode, ticket sales, commissions, fees, refunds, settlement account and payout history. Initial launch is <strong>Print X-managed</strong>, not organizer self-service.</p>
+<p><strong>Three approval modes:</strong> automatic for verified eligible payments; manual for all payments; hybrid for verified cards + staff-approved bank transfers.</p>
+<p><strong>Admission security:</strong> random QR verification tokens; server-side duplicate-scan prevention; minimal scanner privileges; audit of every entry decision. Buyers can recover tickets via verified email OTP—not by a guessable booking reference alone.</p>
+<h3>Money flow (confirmed commercial model)</h3>
+<pre><code class="language-mermaid">flowchart LR
+    Buyer[Ticket buyer] --&gt;|Pays| PX[Print X merchant account]
+    PX --&gt;|Verified transactions| Ledger[Immutable accounting journal]
+    Ledger --&gt; Comm[Print X commission &amp; allowed fees]
+    Ledger --&gt; Payable[Organizer amount payable]
+    Payable --&gt; Approval[Finance approval &amp; reconciliation]
+    Approval --&gt; Organizer[Organizer bank payout]
+</code></pre>
+<p><strong>Settlement formula (contract-dependent):</strong> gross captured revenue − refunds/chargebacks − agreed Print X commission − contractually assigned gateway/other charges = organizer payout. Tax treatment and fee allocation must be specified separately. Never calculate payouts by editing a single summary balance; derive them from immutable ledger entries.</p>
+<blockquote>
+<p><strong>Non-negotiable gate:</strong> obtain written permission from the gateway/bank to collect and settle third-party organizer funds, and complete legal, contractual and tax review before taking live ticket payments.</p>
+</blockquote>
+<hr />
+<h2>03 · Animated wedding invitations — personal, cinematic and scalable</h2>
+<p><strong>Invitation pages are real interactive websites, not static JPEG/PDF cards.</strong></p>
+<table>
+<thead>
+<tr>
+  <th style="text-align:left">Guest experience</th>
+  <th style="text-align:left">Print X operator experience</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td style="text-align:left">Tap to open animated envelope / scene</td>
+  <td style="text-align:left">Choose a versioned theme and scene sequence</td>
+</tr>
+<tr>
+  <td style="text-align:left">See own name, couple details and countdown</td>
+  <td style="text-align:left">Create campaign once, then import CSV/Excel guests</td>
+</tr>
+<tr>
+  <td style="text-align:left">Browse galleries, venue and RSVP</td>
+  <td style="text-align:left">Bulk-generate random private guest links</td>
+</tr>
+<tr>
+  <td style="text-align:left">Use map/directions and event information</td>
+  <td style="text-align:left">Preview, publish, resend, expire and track RSVPs</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Technical strategy:</strong> reusable scene components + template configuration + event data + guest token. GSAP/Motion can animate opening, typography and scene transitions. Later content is lazy-loaded; reduced-motion users get an accessible experience. Avoid large videos as a default mobile landing asset.</p>
+<p><strong>Guest privacy:</strong> use long random tokens; no sequential names in URLs; restrict RSVP to each guest's allocation; offer link revocation/rotation. A link can be forwarded, so it is not a strong identity proof on its own.</p>
+<hr />
+<h2>04 · Staff experience — one command center</h2>
+<table>
+<thead>
+<tr>
+  <th style="text-align:left">Role</th>
+  <th style="text-align:left">What they can do</th>
+  <th style="text-align:left">What they cannot do by default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td style="text-align:left">Super admin</td>
+  <td style="text-align:left">Manage policies, roles and integrations</td>
+  <td style="text-align:left">Bypass audit trails</td>
+</tr>
+<tr>
+  <td style="text-align:left">Shop manager</td>
+  <td style="text-align:left">See commerce and production activity</td>
+  <td style="text-align:left">Independently falsify payment records</td>
+</tr>
+<tr>
+  <td style="text-align:left">Print staff</td>
+  <td style="text-align:left">Assigned jobs, artwork, status updates</td>
+  <td style="text-align:left">Access organizer payouts</td>
+</tr>
+<tr>
+  <td style="text-align:left">Event manager</td>
+  <td style="text-align:left">Organizers, events, tiers, capacities</td>
+  <td style="text-align:left">Modify completed finance journal</td>
+</tr>
+<tr>
+  <td style="text-align:left">Finance staff</td>
+  <td style="text-align:left">Review bank payments, refunds and settlements</td>
+  <td style="text-align:left">Alter ticket inventory without permission</td>
+</tr>
+<tr>
+  <td style="text-align:left">Invitation operator</td>
+  <td style="text-align:left">Themes, guest imports, previews, publishing</td>
+  <td style="text-align:left">Export unrelated customer data</td>
+</tr>
+<tr>
+  <td style="text-align:left">Check-in operator</td>
+  <td style="text-align:left">Validate tickets for assigned event</td>
+  <td style="text-align:left">View full payment and customer database</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Admin navigation:</strong> Overview · Print Orders · Products · Events · Organizers · Ticket Check-in · Invitations · Payments · Settlements · Notifications · Reports · Staff &amp; Access · Settings · Audit Logs.</p>
+<p><strong>Security rule:</strong> every operation is permission-checked on the server and scoped to its resource; hiding a menu item is never sufficient authorization.</p>
+<hr />
+<h2>05 · Architecture — modular first, scalable later</h2>
+<pre><code class="language-mermaid">flowchart TB
+    Web[Public website + guest checkout] --&gt; Edge[HTTPS / CDN / WAF]
+    Staff[Admin / staff workspace + MFA] --&gt; Edge
+    Edge --&gt; API[Next.js UI + NestJS modular backend]
+    API --&gt; Commerce[Commerce module]
+    API --&gt; Ticketing[Ticketing module]
+    API --&gt; Invites[Invitation engine]
+    API --&gt; Finance[Finance &amp; settlement module]
+    Commerce --&gt; DB[(Private PostgreSQL)]
+    Ticketing --&gt; DB
+    Invites --&gt; DB
+    Finance --&gt; DB
+    API --&gt; Queue[Redis jobs + cache]
+    API --&gt; Files[Private artwork / image storage]
+    Queue --&gt; Notify[Email / WhatsApp providers]
+    API --&gt; Gateway[Hosted payment gateway]
+</code></pre>
+<table>
+<thead>
+<tr>
+  <th style="text-align:left">Layer</th>
+  <th style="text-align:left">Recommended starting choice</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td style="text-align:left">UI</td>
+  <td style="text-align:left">Next.js, TypeScript, Tailwind CSS, reusable accessible components</td>
+</tr>
+<tr>
+  <td style="text-align:left">Services</td>
+  <td style="text-align:left">NestJS modular monolith, typed contracts, validation</td>
+</tr>
+<tr>
+  <td style="text-align:left">Database</td>
+  <td style="text-align:left">PostgreSQL with migrations, constraints and transactions</td>
+</tr>
+<tr>
+  <td style="text-align:left">Queue</td>
+  <td style="text-align:left">Redis + job queue with retries / dead-letter handling</td>
+</tr>
+<tr>
+  <td style="text-align:left">Files</td>
+  <td style="text-align:left">Private S3-compatible storage, signed short-lived URLs</td>
+</tr>
+<tr>
+  <td style="text-align:left">Payments</td>
+  <td style="text-align:left">Hosted gateway; verified signed callbacks, idempotency</td>
+</tr>
+<tr>
+  <td style="text-align:left">Authentication</td>
+  <td style="text-align:left">Secure staff sessions, Argon2id, mandatory MFA</td>
+</tr>
+<tr>
+  <td style="text-align:left">Observability</td>
+  <td style="text-align:left">Structured logs, error alerts, uptime and performance monitoring</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Database domains:</strong> <code>identity</code>, <code>commerce</code>, <code>organizers</code>, <code>events</code>, <code>ticketing</code>, <code>payments</code>, <code>ledger</code>, <code>settlements</code>, <code>invitations</code>, <code>notifications</code>, <code>audit</code>. Define ownership, foreign keys, uniqueness constraints, and state machines before API development.</p>
+<p><strong>Security reality:</strong> a public website must expose controlled API endpoints, and its backend must access the database. The correct requirement is <strong>no public database endpoint</strong>, strict access control, modern TLS, encryption at rest, limited internal access and safe secrets—not an impossible promise of zero endpoints or universal end-to-end encryption.</p>
+<hr />
+<h2>06 · Roadmap — a sensible build sequence</h2>
+<table>
+<thead>
+<tr>
+  <th style="text-align:left">Phase</th>
+  <th style="text-align:left">Focus</th>
+  <th style="text-align:left">Deliverable / exit gate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td style="text-align:left"><strong>0 · Discovery</strong></td>
+  <td style="text-align:left">Confirm organizer contracts, gateway settlement permission, detailed screens, edge cases</td>
+  <td style="text-align:left">Approved SRS, ERD, wireframes and integration choices</td>
+</tr>
+<tr>
+  <td style="text-align:left"><strong>1 · Foundation</strong></td>
+  <td style="text-align:left">Design system, auth/RBAC/MFA, schema migrations, audit, storage, queues, payments skeleton</td>
+  <td style="text-align:left">Staff can safely sign in; test payments and jobs are traceable</td>
+</tr>
+<tr>
+  <td style="text-align:left"><strong>2 · Print commerce</strong></td>
+  <td style="text-align:left">Products, pricing, artwork, quote/order, proof and staff workflow</td>
+  <td style="text-align:left">End-to-end print order succeeds from browser to production</td>
+</tr>
+<tr>
+  <td style="text-align:left"><strong>3 · Ticketing &amp; finance</strong></td>
+  <td style="text-align:left">Events, guest booking, holds, verified payments, QR tickets, journal, settlements</td>
+  <td style="text-align:left">Concurrency, callback replay, refund and payout tests pass</td>
+</tr>
+<tr>
+  <td style="text-align:left"><strong>4 · Invitation studio</strong></td>
+  <td style="text-align:left">Animated scenes, admin bulk import, unique URLs, RSVP, reporting</td>
+  <td style="text-align:left">100+ guests generated correctly; mobile experience performs well</td>
+</tr>
+<tr>
+  <td style="text-align:left"><strong>5 · Launch hardening</strong></td>
+  <td style="text-align:left">UAT, accessibility, backups, restore drill, monitoring, load and security tests</td>
+  <td style="text-align:left">Signed launch checklist; staged release with rollback</td>
+</tr>
+</tbody>
+</table>
+<h3>Suggested delivery dependencies</h3>
+<pre><code class="language-mermaid">flowchart LR
+    A[Scope + agreement] --&gt; B[Core architecture + design]
+    B --&gt; C[Shared payment + audit]
+    C --&gt; D[Print commerce]
+    C --&gt; E[Ticketing + settlement]
+    B --&gt; F[Invitation engine]
+    D --&gt; G[Integration / UAT]
+    E --&gt; G
+    F --&gt; G
+    G --&gt; H[Controlled launch]
+</code></pre>
+<p><strong>Priority levels</strong><br />
+🔴 <strong>Must work before launch:</strong> authorization, safe payments, non-overselling, reliable ticket issuance, organizer liabilities, backups, accessibility basics.<br />
+🟡 <strong>Important at launch:</strong> production status tracking, template previews, guest recovery, analytics, operator search.<br />
+🟢 <strong>Later:</strong> organizer self-service, complex seat maps, automated refund execution, advanced CRM, native apps.</p>
+<hr />
+<h2>07 · Performance, quality &amp; acceptance</h2>
+<table>
+<thead>
+<tr>
+  <th style="text-align:left">Quality gate</th>
+  <th style="text-align:left">Target or test</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td style="text-align:left">Mobile load</td>
+  <td style="text-align:left">Core Web Vitals at p75: LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1</td>
+</tr>
+<tr>
+  <td style="text-align:left">Animation</td>
+  <td style="text-align:left">Aim for smooth 60 FPS where supported; usable low-motion fallback</td>
+</tr>
+<tr>
+  <td style="text-align:left">Ticket concurrency</td>
+  <td style="text-align:left">100 concurrent attempts for last ticket never result in overselling (test load configurable)</td>
+</tr>
+<tr>
+  <td style="text-align:left">Payment replay</td>
+  <td style="text-align:left">Repeated verified webhook never produces duplicate tickets or ledger posts</td>
+</tr>
+<tr>
+  <td style="text-align:left">Recovery</td>
+  <td style="text-align:left">Email OTP retrieves guest booking without exposing another customer's records</td>
+</tr>
+<tr>
+  <td style="text-align:left">Settlement</td>
+  <td style="text-align:left">Every payout reconciles to journal entries and finance approval</td>
+</tr>
+<tr>
+  <td style="text-align:left">Invitation generation</td>
+  <td style="text-align:left">Batch of 100+ guest pages has unique random tokens and correct personalization</td>
+</tr>
+<tr>
+  <td style="text-align:left">Privacy</td>
+  <td style="text-align:left">Private DB, least privilege, retention rules, deletion/export workflow</td>
+</tr>
+<tr>
+  <td style="text-align:left">Resilience</td>
+  <td style="text-align:left">Encrypted backups, tested restore, alerting for failed queues and callbacks</td>
+</tr>
+</tbody>
+</table>
+<p><em>Numerical performance goals are project targets, not verified production measurements. Final load, uptime and recovery thresholds should be agreed based on expected event traffic and hosting budget.</em></p>
+<h3>Critical risk register</h3>
+<table>
+<thead>
+<tr>
+  <th style="text-align:left">Risk</th>
+  <th style="text-align:left">Response</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td style="text-align:left">Payment provider disallows third-party settlements</td>
+  <td style="text-align:left">Obtain approval before gateway development; redesign commercial flow if needed</td>
+</tr>
+<tr>
+  <td style="text-align:left">Oversold event capacity</td>
+  <td style="text-align:left">Time-limited holds, DB transactions, atomic inventory constraints</td>
+</tr>
+<tr>
+  <td style="text-align:left">Duplicate callbacks / lost messages</td>
+  <td style="text-align:left">Idempotent webhook handling, transactional outbox, retry queues</td>
+</tr>
+<tr>
+  <td style="text-align:left">Fraudulent transfer slips</td>
+  <td style="text-align:left">Manual reconciliation with actual bank credits</td>
+</tr>
+<tr>
+  <td style="text-align:left">Leaked invitation links</td>
+  <td style="text-align:left">High-entropy tokens, revocation, minimal data exposure</td>
+</tr>
+<tr>
+  <td style="text-align:left">Slow animation on mid-range phones</td>
+  <td style="text-align:left">Asset budgets, lazy loading, reduced motion, device testing</td>
+</tr>
+<tr>
+  <td style="text-align:left">Unauthorized staff access</td>
+  <td style="text-align:left">Per-action RBAC, MFA, scope checks and immutable audits</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>08 · Definition of done</h2>
+<p>A feature is <strong>done</strong> only when its screen, API, validation, permissions, database migration, automated tests, failure cases, audit/monitoring events and user documentation are complete. Live payment or settlement functionality additionally requires verified provider integration and finance sign-off.</p>
+<h3>Immediate next actions</h3>
+<ol>
+<li>Confirm gateway/bank acceptance of collection and organizer payout flow.</li>
+<li>Approve organizer agreement, payout cycle, commission and fee-allocation rules.</li>
+<li>Finalize database ERD, ledger posting rules and ticket/payment state machines.</li>
+<li>Create page-level mobile wireframes and the Print X component design system.</li>
+<li>Build Phase 1 foundation with automated CI/CD, a staging environment and backups.</li>
+</ol>
+<hr />
+<p><strong>PRINT X · Build trust through beautiful design and accurate operations.</strong><br />
+<em>Companion to <code>PrintX_SRS_v1.md</code> and <code>PrintX_PostgreSQL_Schema_v1.sql</code>. This plan is a readable executive/development overview, not a replacement for the complete SRS.</em></p>
+<div class="foot">PRINT X · PRIVATE PLANNING DOCUMENT</div></main></body></html>
