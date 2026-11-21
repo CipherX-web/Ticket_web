@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "build": "nest build",
+    "postinstall": "prisma generate",
     "vercel-build": "prisma generate && nest build",
     "dev": "nest start --watch",
     "start": "node -r tsconfig-paths/register dist/src/main",

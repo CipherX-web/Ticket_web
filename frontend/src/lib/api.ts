@@ -1,7 +1,14 @@
 import type { Product } from "@/data/products";
 import type { EventItem } from "@/data/events";
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/v1";
+function getApiBase(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  if (typeof window !== "undefined") return "/v1";
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}/v1`;
+  return "http://localhost:4000/v1";
+}
+
+export const API_BASE = getApiBase();
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
