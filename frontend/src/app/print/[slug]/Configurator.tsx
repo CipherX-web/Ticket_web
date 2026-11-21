@@ -1,11 +1,13 @@
 "use client";
 import { useMemo, useState } from "react";
 import type { Product } from "@/data/products";
+import { createPrintOrder } from "@/lib/api";
 import { estimate } from "@/lib/pricing";
 import { formatLkr } from "@/lib/format";
+import { fieldErrors, guestSchema } from "@/lib/validation";
 import { Button } from "@/components/Button";
 import { Placeholder } from "@/components/Placeholder";
-import { Select } from "@/components/Field";
+import { Select, TextField } from "@/components/Field";
 
 const MAX_BYTES = 50 * 1024 * 1024;
 const ALLOWED = ["application/pdf", "image/png", "image/jpeg", "image/tiff"];
@@ -17,7 +19,10 @@ export function Configurator({ product }: { product: Product }) {
   const [quantity, setQuantity] = useState(product.quantities[0]!);
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState("");
-  const [done, setDone] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [serverError, setServerError] = useState("");
+  const [created, setCreated] = useState<{ reference: string; status: string; totalMinor: number } | null>(null);
 
   const est = useMemo(
     () => estimate(product, { sizeId, materialId, finishId, quantity }),
@@ -27,23 +32,47 @@ export function Configurator({ product }: { product: Product }) {
   function onFile(f: File | undefined) {
     setFileError("");
     setFile(null);
-    setDone(false);
+    setCreated(null);
     if (!f) return;
     if (!ALLOWED.includes(f.type)) return setFileError("Use a PDF, PNG, JPEG or TIFF file.");
     if (f.size > MAX_BYTES) return setFileError("File is larger than 50 MB.");
     setFile(f);
   }
 
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setServerError("");
+    const data = Object.fromEntries(new FormData(e.currentTarget)) as Record<string, string>;
+    const parsed = guestSchema.safeParse(data);
+    const next = parsed.success ? {} : fieldErrors(parsed.error);
+    if (!file) setFileError("Upload your artwork file first.");
+    setErrors(next);
+    if (!est || !file || !parsed.success) return;
+
+    setSubmitting(true);
+    try {
+      const res = await createPrintOrder({
+        productSlug: product.slug,
+        sizeId,
+        materialId,
+        finishId,
+        quantity,
+        customerName: parsed.data.name,
+        customerEmail: parsed.data.email,
+        customerPhone: parsed.data.whatsapp,
+        artworkName: file.name,
+      });
+      setCreated(res);
+    } catch (err) {
+      setServerError(err instanceof Error ? err.message : "Could not place order.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <div className="mt-8 grid gap-8 lg:grid-cols-[1.1fr_1fr]">
-      <form
-        className="space-y-5 border border-line bg-paper p-6"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (est && file) setDone(true);
-        }}
-        noValidate
-      >
+      <form className="space-y-5 border border-line bg-paper p-6" onSubmit={submit} noValidate>
         <Select label="Size" value={sizeId} onChange={setSizeId} options={product.sizes.map((o) => ({ value: o.id, label: o.label }))} />
         <Select label="Material" value={materialId} onChange={setMaterialId} options={product.materials.map((o) => ({ value: o.id, label: o.label }))} />
         <Select label="Finish" value={finishId} onChange={setFinishId} options={product.finishes.map((o) => ({ value: o.id, label: o.label }))} />
@@ -70,11 +99,24 @@ export function Configurator({ product }: { product: Product }) {
           <p id="art-err" role="alert" className="mt-1 min-h-5 text-sm text-danger">{fileError}</p>
         </div>
 
-        <Button type="submit" disabled={!est || !file} className="w-full">Continue to proof approval</Button>
-        {done && (
-          <p role="status" className="border border-sage bg-sage-soft p-3 text-sm text-forest">
-            Preview only. Checkout and secure upload connect in the next build phase. Nothing was sent.
-          </p>
+        <fieldset className="space-y-1 border-t border-line pt-4">
+          <legend className="text-xs font-medium uppercase tracking-[0.18em] text-forest/70">Your contact details</legend>
+          <TextField label="Full name" name="name" autoComplete="name" error={errors.name} />
+          <TextField label="Email" name="email" type="email" autoComplete="email" error={errors.email} />
+          <TextField label="WhatsApp number" name="whatsapp" type="tel" autoComplete="tel" placeholder="+94 77 123 4567" error={errors.whatsapp} />
+        </fieldset>
+
+        {serverError && <p role="alert" className="border border-danger/30 bg-danger/5 p-3 text-sm text-danger">{serverError}</p>}
+
+        <Button type="submit" disabled={!est || submitting} className="w-full">
+          {submitting ? "Creating print order..." : "Submit print order"}
+        </Button>
+
+        {created && (
+          <div role="status" className="border border-forest bg-sage-soft p-4 text-sm text-forest">
+            <p className="font-medium">Order {created.reference} created · {created.status}</p>
+            <p className="mt-1">Total: {formatLkr(created.totalMinor)}. Use this reference on the Track Order page.</p>
+          </div>
         )}
       </form>
 

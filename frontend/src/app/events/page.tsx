@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
-import { events } from "@/data/events";
+import { events as fallbackEvents } from "@/data/events";
+import { fetchEvents } from "@/lib/api";
 import { formatDate, formatLkr } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Events" };
+export const dynamic = "force-dynamic";
 
-export default function EventsPage() {
+export default async function EventsPage() {
+  const events = (await fetchEvents()) ?? fallbackEvents;
   return (
     <>
       <PageHeader eyebrow="Event tickets" title="Upcoming events">Buy tickets as a guest — no account required. Tickets arrive by email and WhatsApp with a QR code.</PageHeader>

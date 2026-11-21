@@ -1,23 +1,27 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { events, getEvent } from "@/data/events";
+import { events as fallbackEvents, getEvent } from "@/data/events";
+import { fetchEvent } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { Placeholder } from "@/components/Placeholder";
 import { TicketPicker } from "./TicketPicker";
 
 type Props = { params: Promise<{ slug: string }> };
+export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
-  return events.map((e) => ({ slug: e.slug }));
+  return fallbackEvents.map((e) => ({ slug: e.slug }));
 }
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const e = getEvent((await params).slug);
+  const { slug } = await params;
+  const e = (await fetchEvent(slug)) ?? getEvent(slug);
   return { title: e ? e.title : "Event" };
 }
 
 export default async function EventPage({ params }: Props) {
-  const event = getEvent((await params).slug);
+  const { slug } = await params;
+  const event = (await fetchEvent(slug)) ?? getEvent(slug);
   if (!event) notFound();
   return (
     <div className="container-x py-10">

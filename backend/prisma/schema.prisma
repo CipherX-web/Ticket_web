@@ -1,0 +1,424 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// 1. IDENTITY & RBAC
+// ============================================================================
+enum StaffRole {
+  SUPER_ADMIN
+  SHOP_MANAGER
+  PRINT_STAFF
+  EVENT_MANAGER
+  FINANCE_STAFF
+  INVITATION_OPERATOR
+  CHECKIN_OPERATOR
+}
+
+model StaffUser {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  name         String
+  passwordHash String
+  role         StaffRole
+  mfaEnabled   Boolean        @default(false)
+  mfaSecret    String?
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  sessions     StaffSession[]
+}
+
+model StaffSession {
+  id        String    @id @default(cuid())
+  userId    String
+  user      StaffUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// ============================================================================
+// 2. PRINT COMMERCE
+// ============================================================================
+enum PrintOrderStatus {
+  NEW
+  ARTWORK_REVIEW
+  AWAITING_PROOF_APPROVAL
+  READY_TO_PRINT
+  PRINTING
+  READY
+  DELIVERED
+  CANCELLED
+}
+
+model Product {
+  id            String       @id @default(cuid())
+  slug          String       @unique
+  name          String
+  category      String
+  summary       String
+  baseUnitMinor Int
+  minQty        Int
+  quantities    Json
+  sizes         Json
+  materials     Json
+  finishes      Json
+  proofRequired Boolean      @default(true)
+  leadTime      String
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  orders        PrintOrder[]
+}
+
+model PrintOrder {
+  id              String           @id @default(cuid())
+  reference       String           @unique
+  productId       String
+  product         Product          @relation(fields: [productId], references: [id])
+  customerName    String
+  customerEmail   String
+  customerPhone   String
+  sizeId          String
+  materialId      String
+  finishId        String
+  quantity        Int
+  unitMinor       Int
+  discountPct     Int
+  totalMinor      Int
+  currency        String           @default("LKR")
+  artworkKey      String?
+  artworkName     String?
+  status          PrintOrderStatus @default(NEW)
+  proofVersion    Int              @default(0)
+  approvedVersion Int?
+  approvedAt      DateTime?
+  notes           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([reference, customerEmail])
+  @@index([status])
+}
+
+model ContactInquiry {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  message   String
+  createdAt DateTime @default(now())
+}
+
+// ============================================================================
+// 3. ORGANIZERS & EVENTS
+// ============================================================================
+enum ApprovalMode {
+  AUTOMATIC
+  MANUAL
+  HYBRID
+}
+
+model Organizer {
+  id            String       @id @default(cuid())
+  name          String
+  contactEmail  String
+  contactPhone  String
+  commissionBps Int          @default(1000) // 10.00%
+  bankName      String?
+  bankAccount   String?
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  events        Event[]
+  settlements   Settlement[]
+}
+
+model Event {
+  id           String       @id @default(cuid())
+  slug         String       @unique
+  title        String
+  organizerId  String
+  organizer    Organizer    @relation(fields: [organizerId], references: [id])
+  startsAt     DateTime
+  venue        String
+  city         String
+  summary      String
+  approvalMode ApprovalMode @default(AUTOMATIC)
+  isPublished  Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  tiers        TicketTier[]
+  bookings     TicketBooking[]
+  settlements  Settlement[]
+
+  @@index([organizerId])
+}
+
+model TicketTier {
+  id          String          @id @default(cuid())
+  eventId     String
+  event       Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  code        String
+  name        String
+  priceMinor  Int
+  capacity    Int
+  available   Int
+  perOrderMax Int
+  holds       InventoryHold[]
+  tickets     Ticket[]
+
+  @@unique([eventId, code])
+  @@index([eventId])
+}
+
+// ============================================================================
+// 4. TICKETING (GUEST CHECKOUT, HOLDS, QR, OTP RECOVERY)
+// ============================================================================
+enum BookingStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  PENDING_MANUAL_REVIEW
+  CANCELLED
+  REFUNDED
+}
+
+enum TicketStatus {
+  VALID
+  CHECKED_IN
+  CANCELLED
+}
+
+model InventoryHold {
+  id         String     @id @default(cuid())
+  tierId     String
+  tier       TicketTier @relation(fields: [tierId], references: [id])
+  quantity   Int
+  expiresAt  DateTime
+  releasedAt DateTime?
+  consumedAt DateTime?
+  createdAt  DateTime   @default(now())
+
+  @@index([tierId, expiresAt])
+}
+
+model TicketBooking {
+  id             String        @id @default(cuid())
+  reference      String        @unique
+  eventId        String
+  event          Event         @relation(fields: [eventId], references: [id])
+  buyerName      String
+  buyerEmail     String
+  buyerWhatsapp  String
+  totalMinor     Int
+  currency       String        @default("LKR")
+  status         BookingStatus @default(PENDING_PAYMENT)
+  idempotencyKey String?       @unique
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  tickets        Ticket[]
+  payments       Payment[]
+
+  @@index([buyerEmail])
+  @@index([eventId])
+}
+
+model Ticket {
+  id          String        @id @default(cuid())
+  bookingId   String
+  booking     TicketBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  tierId      String
+  tier        TicketTier    @relation(fields: [tierId], references: [id])
+  code        String        @unique
+  qrTokenHash String        @unique
+  status      TicketStatus  @default(VALID)
+  checkedInAt DateTime?
+  checkedInBy String?
+  createdAt   DateTime      @default(now())
+
+  @@index([bookingId])
+  @@index([tierId])
+}
+
+model RecoveryOtp {
+  id        String    @id @default(cuid())
+  email     String
+  otpHash   String
+  attempts  Int       @default(0)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email])
+}
+
+// ============================================================================
+// 5. PAYMENTS, IMMUTABLE LEDGER & SETTLEMENTS
+// ============================================================================
+enum PaymentMethod {
+  CARD_GATEWAY
+  BANK_TRANSFER
+}
+
+enum PaymentStatus {
+  PENDING
+  CAPTURED
+  FAILED
+  MANUAL_REVIEW
+  REFUNDED
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  bookingId       String
+  booking         TicketBooking @relation(fields: [bookingId], references: [id])
+  method          PaymentMethod
+  status          PaymentStatus @default(PENDING)
+  amountMinor     Int
+  currency        String        @default("LKR")
+  providerRef     String?       @unique
+  providerEventId String?       @unique
+  verifiedAt      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([bookingId])
+}
+
+enum LedgerDirection {
+  DEBIT
+  CREDIT
+}
+
+model LedgerEntry {
+  id             String          @id @default(cuid())
+  accountCode    String          // e.g. CASH_CLEARING, ORGANIZER_PAYABLE, PLATFORM_COMMISSION
+  direction      LedgerDirection
+  amountMinor    Int
+  currency       String          @default("LKR")
+  referenceType  String          // BOOKING, REFUND, SETTLEMENT
+  referenceId    String
+  idempotencyKey String          @unique
+  description    String
+  createdAt      DateTime        @default(now())
+
+  @@index([accountCode])
+  @@index([referenceType, referenceId])
+}
+
+enum SettlementStatus {
+  DRAFT
+  APPROVED
+  PAID
+}
+
+model Settlement {
+  id              String           @id @default(cuid())
+  organizerId     String
+  organizer       Organizer        @relation(fields: [organizerId], references: [id])
+  eventId         String
+  event           Event            @relation(fields: [eventId], references: [id])
+  grossMinor      Int
+  refundsMinor    Int
+  commissionMinor Int
+  feesMinor       Int
+  netPayableMinor Int
+  currency        String           @default("LKR")
+  status          SettlementStatus @default(DRAFT)
+  approvedBy      String?
+  approvedAt      DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime         @default(now())
+
+  @@index([organizerId])
+  @@index([eventId])
+}
+
+// ============================================================================
+// 6. ANIMATED WEDDING INVITATIONS
+// ============================================================================
+enum RsvpStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+model InvitationCampaign {
+  id             String            @id @default(cuid())
+  slug           String            @unique
+  coupleTitle    String
+  eventDate      DateTime
+  venueName      String
+  venueAddress   String
+  storyText      String
+  templateConfig Json
+  isPublished    Boolean           @default(false)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  guests         InvitationGuest[]
+}
+
+model InvitationGuest {
+  id           String             @id @default(cuid())
+  campaignId   String
+  campaign     InvitationCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  guestName    String
+  tokenHash    String             @unique
+  maxPartySize Int                @default(2)
+  rsvpStatus   RsvpStatus         @default(PENDING)
+  rsvpCount    Int                @default(0)
+  rsvpNote     String?
+  openedAt     DateTime?
+  revokedAt    DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([campaignId])
+}
+
+// ============================================================================
+// 7. TRANSACTIONAL OUTBOX & IMMUTABLE AUDIT LOG
+// ============================================================================
+enum OutboxStatus {
+  PENDING
+  SENT
+  FAILED
+  DEAD_LETTER
+}
+
+model OutboxMessage {
+  id          String       @id @default(cuid())
+  channel     String       // EMAIL, WHATSAPP
+  recipient   String
+  template    String
+  payload     Json
+  status      OutboxStatus @default(PENDING)
+  attempts    Int          @default(0)
+  nextRetryAt DateTime     @default(now())
+  createdAt   DateTime     @default(now())
+
+  @@index([status, nextRetryAt])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  actorId      String?
+  actorRole    String?
+  action       String
+  resourceType String
+  resourceId   String
+  metadata     Json?
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+
+  @@index([resourceType, resourceId])
+  @@index([createdAt])
+}

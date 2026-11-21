@@ -2,12 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { Placeholder } from "@/components/Placeholder";
-import { products } from "@/data/products";
+import { products as fallbackProducts } from "@/data/products";
+import { fetchProducts } from "@/lib/api";
 import { formatLkr } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Print products" };
+export const dynamic = "force-dynamic";
 
-export default function PrintPage() {
+export default async function PrintPage() {
+  const products = (await fetchProducts()) ?? fallbackProducts;
   const categories = [...new Set(products.map((p) => p.category))];
   return (
     <>

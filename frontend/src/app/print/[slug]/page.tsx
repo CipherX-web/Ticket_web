@@ -1,21 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProduct, products } from "@/data/products";
+import { getProduct, products as fallbackProducts } from "@/data/products";
+import { fetchProduct } from "@/lib/api";
 import { Configurator } from "./Configurator";
 
 type Props = { params: Promise<{ slug: string }> };
+export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
-  return products.map((p) => ({ slug: p.slug }));
+  return fallbackProducts.map((p) => ({ slug: p.slug }));
 }
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const p = getProduct((await params).slug);
+  const { slug } = await params;
+  const p = (await fetchProduct(slug)) ?? getProduct(slug);
   return { title: p ? p.name : "Product" };
 }
 
 export default async function ProductPage({ params }: Props) {
-  const product = getProduct((await params).slug);
+  const { slug } = await params;
+  const product = (await fetchProduct(slug)) ?? getProduct(slug);
   if (!product) notFound();
   return (
     <div className="container-x py-10">
