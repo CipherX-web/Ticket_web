@@ -201,6 +201,47 @@ export async function fetchPublicInvitation(token: string): Promise<PublicInvita
   }
 }
 
+export function lookupBooking(reference: string, email: string) {
+  return request<{
+    reference: string;
+    status: string;
+    totalMinor: number;
+    currency: string;
+    buyerName: string;
+    event: { title: string; startsAt: string; venue: string; city: string };
+    tickets: Array<{ code: string; qrToken: string; tierName: string; status: string; checkedInAt: string | null }>;
+  }>("/ticketing/booking/lookup", {
+    method: "POST",
+    body: JSON.stringify({ reference, email }),
+  });
+}
+
+export function requestRecoveryOtp(email: string) {
+  return request<{ sent: boolean; message: string }>("/ticketing/recovery/request", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function verifyRecoveryOtp(
+  email: string,
+  otp: string,
+) {
+  return request<{
+    bookings: Array<{
+      reference: string;
+      status: string;
+      totalMinor: number;
+      createdAt: string;
+      event: { title: string; startsAt: string; venue: string };
+      tickets: Array<{ code: string; status: string }>;
+    }>;
+  }>("/ticketing/recovery/verify", {
+    method: "POST",
+    body: JSON.stringify({ email, otp }),
+  });
+}
+
 export function submitInvitationRsvp(token: string, payload: { status: "ACCEPTED" | "DECLINED"; count: number }) {
   return request<{ rsvpStatus: string; rsvpCount: number }>(`/invitations/public/${encodeURIComponent(token)}/rsvp`, {
     method: "POST",
