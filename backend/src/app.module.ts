@@ -1,5 +1,6 @@
 import { Controller, Get, Global, Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
+import { ScheduleModule } from "@nestjs/schedule";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { PrismaService } from "./common/prisma.service";
 import { AuditModule } from "./modules/audit/audit.module";
@@ -31,6 +32,7 @@ class HealthController {
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
     PrismaModule,
     AuditModule,

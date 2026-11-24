@@ -179,6 +179,218 @@ export function checkoutTickets(
   });
 }
 
+export function createPaymentSession(payload: {
+  bookingId: string;
+  returnUrl?: string;
+  cancelUrl?: string;
+}) {
+  return request<{
+    bookingReference: string;
+    amountFormatted: string;
+    currency: string;
+    gateway: {
+      provider: "PAYHERE" | "WEBXPAY" | "GENERIC";
+      actionUrl: string;
+      method: "POST" | "GET";
+      fields: Record<string, string>;
+    };
+  }>("/payments/session", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+// ─── Staff Admin APIs ─────────────────────────────────────────────────────────
+
+export interface StaffUser {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+}
+
+export function staffLogin(payload: { email: string; password: string }) {
+  return request<{ user: StaffUser }>("/auth/login", {
+    method: "POST",
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function staffLogout() {
+  return request<{ ok: boolean }>("/auth/logout", {
+    method: "POST",
+    credentials: "include",
+  });
+}
+
+export function fetchStaffMe() {
+  return request<{ user: StaffUser }>("/auth/me", {
+    credentials: "include",
+  });
+}
+
+export interface AdminEvent {
+  id: string;
+  slug: string;
+  title: string;
+  startsAt: string;
+  venue: string;
+  city: string;
+  summary: string;
+  approvalMode: string;
+  isPublished: boolean;
+  organizer: { name: string };
+  tiers: Array<{
+    id: string;
+    code: string;
+    name: string;
+    priceMinor: number;
+    capacity: number;
+    available: number;
+    perOrderMax: number;
+  }>;
+}
+
+export function fetchAdminEvents() {
+  return request<AdminEvent[]>("/admin/events", { credentials: "include" });
+}
+
+export function createAdminEvent(payload: {
+  title: string;
+  slug: string;
+  organizerId: string;
+  startsAt: string;
+  venue: string;
+  city: string;
+  summary: string;
+  approvalMode?: "AUTOMATIC" | "MANUAL" | "HYBRID";
+  isPublished?: boolean;
+  tiers: Array<{
+    code: string;
+    name: string;
+    priceMinor: number;
+    capacity: number;
+    perOrderMax: number;
+  }>;
+}) {
+  return request<AdminEvent>("/admin/events", {
+    method: "POST",
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function togglePublishEvent(id: string, publish: boolean) {
+  return request<AdminEvent>(`/admin/events/${id}/${publish ? "publish" : "unpublish"}`, {
+    method: "POST",
+    credentials: "include",
+  });
+}
+
+export function fetchEventStats(id: string) {
+  return request<{
+    eventId: string;
+    title: string;
+    tiers: Array<{ name: string; capacity: number; available: number; sold: number }>;
+    totalBookings: number;
+    confirmedBookings: number;
+    confirmedRevenueMinor: number;
+  }>(`/admin/events/${id}/stats`, { credentials: "include" });
+}
+
+export interface Organizer {
+  id: string;
+  name: string;
+  contactEmail: string;
+  contactPhone: string;
+  commissionBps: number;
+  bankName: string | null;
+  bankAccount: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export function fetchOrganizers() {
+  return request<Organizer[]>("/organizers", { credentials: "include" });
+}
+
+export function createOrganizer(payload: {
+  name: string;
+  contactEmail: string;
+  contactPhone: string;
+  commissionBps?: number;
+  bankName?: string;
+  bankAccount?: string;
+}) {
+  return request<Organizer>("/organizers", {
+    method: "POST",
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+}
+
+export interface PendingReconciliation {
+  id: string;
+  bookingId: string;
+  method: string;
+  status: string;
+  amountMinor: number;
+  createdAt: string;
+  booking: {
+    reference: string;
+    buyerName: string;
+    buyerEmail: string;
+    buyerWhatsapp: string;
+    event: { title: string; startsAt: string };
+    tickets: Array<{ code: string }>;
+  };
+}
+
+export function fetchPendingReconciliations() {
+  return request<PendingReconciliation[]>("/payments/pending-reconciliations", { credentials: "include" });
+}
+
+export function reconcilePayment(id: string) {
+  return request<{ id: string; status: string }>(`/payments/${id}/reconcile`, {
+    method: "POST",
+    credentials: "include",
+  });
+}
+
+export interface Settlement {
+  id: string;
+  organizerId: string;
+  eventId: string;
+  grossMinor: number;
+  commissionMinor: number;
+  feesMinor: number;
+  netPayableMinor: number;
+  status: string;
+  createdAt: string;
+  organizer: { name: string };
+  event: { title: string };
+}
+
+export function fetchSettlements() {
+  return request<Settlement[]>("/settlements", { credentials: "include" });
+}
+
+export function calculateSettlement(payload: { eventId: string; organizerId: string }) {
+  return request<Settlement>("/settlements/calculate", {
+    method: "POST",
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function approveSettlement(id: string) {
+  return request<Settlement>(`/settlements/${id}/approve`, {
+    method: "POST",
+    credentials: "include",
+  });
+}
+
 export interface PublicInvitation {
   guestName: string;
   maxPartySize: number;

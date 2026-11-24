@@ -3,9 +3,11 @@ import {
   Body,
   ConflictException,
   Controller,
+  forwardRef,
   Get,
   Headers,
   HttpCode,
+  Inject,
   Injectable,
   Logger,
   Module,
@@ -78,6 +80,7 @@ export class TicketingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ledger: LedgerService,
+    @Inject(forwardRef(() => NotificationsService))
     private readonly notifications: NotificationsService,
     private readonly audit: AuditService,
   ) {}
@@ -166,7 +169,7 @@ export class TicketingService {
         });
       }
 
-      const isCardAuto = dto.paymentMethod === "CARD_GATEWAY" && event.approvalMode === "AUTOMATIC";
+      const isCard = dto.paymentMethod === "CARD_GATEWAY";
       const reference = generateReference("TKT");
       const booking = await tx.ticketBooking.create({
         data: {
@@ -176,7 +179,7 @@ export class TicketingService {
           buyerEmail: dto.buyerEmail.toLowerCase().trim(),
           buyerWhatsapp: dto.buyerWhatsapp.trim(),
           totalMinor,
-          status: isCardAuto ? "CONFIRMED" : "PENDING_MANUAL_REVIEW",
+          status: isCard ? "PENDING_PAYMENT" : "PENDING_MANUAL_REVIEW",
           idempotencyKey,
         },
       });
@@ -185,9 +188,9 @@ export class TicketingService {
         data: {
           bookingId: booking.id,
           method: dto.paymentMethod,
-          status: isCardAuto ? "CAPTURED" : "MANUAL_REVIEW",
+          status: isCard ? "PENDING" : "MANUAL_REVIEW",
           amountMinor: totalMinor,
-          verifiedAt: isCardAuto ? new Date() : null,
+          verifiedAt: null,
         },
       });
 
@@ -210,32 +213,7 @@ export class TicketingService {
               qrTokenHash: hashToken(qrToken),
             },
           });
-          if (isCardAuto) {
-            issuedTickets.push({ code, qrToken, tierName: tier.name });
-          }
         }
-      }
-
-      if (isCardAuto) {
-        await this.ledger.postBookingCapture(
-          {
-            bookingId: booking.id,
-            grossMinor: totalMinor,
-            commissionBps: event.organizer.commissionBps,
-            idempotencyBase: `booking:${booking.id}`,
-          },
-          tx,
-        );
-
-        await this.notifications.enqueue(
-          {
-            channel: "EMAIL",
-            recipient: booking.buyerEmail,
-            template: "TICKETS_ISSUED",
-            payload: { reference: booking.reference, ticketCount: issuedTickets.length },
-          },
-          tx,
-        );
       }
 
       await this.audit.record(
@@ -332,7 +310,7 @@ export class TicketingService {
       channel: "EMAIL",
       recipient: normalized,
       template: "TICKET_RECOVERY_OTP",
-      payload: { expiresInMinutes: 10 },
+      payload: { otp, expiresInMinutes: 10 },
     });
     return { sent: true, message: "If bookings exist for this email, a 6-digit code has been sent." };
   }
