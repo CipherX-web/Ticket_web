@@ -236,6 +236,18 @@ export class TicketingService {
           },
           tx,
         );
+
+        if (booking.buyerWhatsapp) {
+          await this.notifications.enqueue(
+            {
+              channel: "WHATSAPP",
+              recipient: booking.buyerWhatsapp,
+              template: "TICKETS_ISSUED",
+              payload: { reference: booking.reference, ticketCount: issuedTickets.length },
+            },
+            tx,
+          );
+        }
       }
 
       await this.audit.record(

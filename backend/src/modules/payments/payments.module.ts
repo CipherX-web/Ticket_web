@@ -89,6 +89,18 @@ export class PaymentsService {
           },
           tx,
         );
+
+        if (booking.buyerWhatsapp) {
+          await this.notifications.enqueue(
+            {
+              channel: "WHATSAPP",
+              recipient: booking.buyerWhatsapp,
+              template: "TICKETS_ISSUED",
+              payload: { reference: booking.reference, ticketCount: booking.tickets.length },
+            },
+            tx,
+          );
+        }
       }
 
       await this.audit.record(
@@ -139,6 +151,18 @@ export class PaymentsService {
         },
         tx,
       );
+
+      if (payment.booking.buyerWhatsapp) {
+        await this.notifications.enqueue(
+          {
+            channel: "WHATSAPP",
+            recipient: payment.booking.buyerWhatsapp,
+            template: "TICKETS_ISSUED",
+            payload: { reference: payment.booking.reference, ticketCount: payment.booking.tickets.length },
+          },
+          tx,
+        );
+      }
 
       await this.audit.record(
         {
