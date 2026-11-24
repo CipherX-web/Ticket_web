@@ -21,6 +21,7 @@ import { verifyHmac } from "@/common/crypto.util";
 import { PrismaService } from "@/common/prisma.service";
 import { AuditService } from "@/modules/audit/audit.module";
 import { LedgerModule, LedgerService } from "@/modules/ledger/ledger.module";
+import { NotificationsService } from "@/modules/notifications/notifications.module";
 
 class WebhookPayloadDto {
   @IsString() @MaxLength(120) providerEventId!: string;
@@ -34,6 +35,7 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly ledger: LedgerService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async handleGatewayWebhook(rawBody: Buffer | undefined, signature: string | undefined, dto: WebhookPayloadDto) {
@@ -49,7 +51,7 @@ export class PaymentsService {
 
     const booking = await this.prisma.ticketBooking.findUnique({
       where: { id: dto.bookingId },
-      include: { event: { include: { organizer: true } } },
+      include: { event: { include: { organizer: true } }, tickets: true },
     });
     if (!booking) throw new NotFoundException("Booking not found.");
 
@@ -77,6 +79,16 @@ export class PaymentsService {
           },
           tx,
         );
+
+        await this.notifications.enqueue(
+          {
+            channel: "EMAIL",
+            recipient: booking.buyerEmail,
+            template: "TICKETS_ISSUED",
+            payload: { reference: booking.reference, ticketCount: booking.tickets.length },
+          },
+          tx,
+        );
       }
 
       await this.audit.record(
@@ -95,7 +107,7 @@ export class PaymentsService {
   async approveBankTransfer(paymentId: string, staffId: string, staffRole: string) {
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
-      include: { booking: { include: { event: { include: { organizer: true } } } } },
+      include: { booking: { include: { event: { include: { organizer: true } }, tickets: true } } },
     });
     if (!payment) throw new NotFoundException("Payment not found.");
     if (payment.method !== "BANK_TRANSFER" || payment.status !== "MANUAL_REVIEW") {
@@ -117,6 +129,17 @@ export class PaymentsService {
         },
         tx,
       );
+
+      await this.notifications.enqueue(
+        {
+          channel: "EMAIL",
+          recipient: payment.booking.buyerEmail,
+          template: "TICKETS_ISSUED",
+          payload: { reference: payment.booking.reference, ticketCount: payment.booking.tickets.length },
+        },
+        tx,
+      );
+
       await this.audit.record(
         {
           actorId: staffId,

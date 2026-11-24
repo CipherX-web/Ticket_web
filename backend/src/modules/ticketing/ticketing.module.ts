@@ -3,12 +3,15 @@ import {
   Body,
   ConflictException,
   Controller,
+  Get,
   Headers,
   HttpCode,
   Injectable,
+  Logger,
   Module,
   NotFoundException,
   Post,
+  Query,
   Req,
   UseGuards,
 } from "@nestjs/common";
@@ -28,6 +31,7 @@ import {
   MinLength,
   ValidateNested,
 } from "class-validator";
+import { Throttle } from "@nestjs/throttler";
 import { AuthenticatedRequest, Roles, RolesGuard, StaffAuthGuard } from "@/common/auth.guard";
 import { generateNumericOtp, generateReference, generateToken, hashToken, signHmac } from "@/common/crypto.util";
 import { PrismaService } from "@/common/prisma.service";
@@ -187,28 +191,32 @@ export class TicketingService {
         },
       });
 
+      // Always create tickets for the booking.
+      // qrToken is deterministically HMAC-signed from code so it can be verified & re-served securely.
+      const secret = process.env.QR_HMAC_SECRET ?? "dev-secret";
       const issuedTickets: Array<{ code: string; qrToken: string; tierName: string }> = [];
-      if (isCardAuto) {
-        const secret = process.env.QR_HMAC_SECRET ?? "dev-secret";
-        for (const item of dto.items) {
-          const tier = tierMap.get(item.tierId)!;
-          for (let i = 0; i < item.quantity; i++) {
-            const rawToken = generateToken(24);
-            const sig = signHmac(rawToken, secret).slice(0, 16);
-            const qrToken = `${rawToken}.${sig}`;
-            const code = generateReference("QR");
-            await tx.ticket.create({
-              data: {
-                bookingId: booking.id,
-                tierId: tier.id,
-                code,
-                qrTokenHash: hashToken(qrToken),
-              },
-            });
+
+      for (const item of dto.items) {
+        const tier = tierMap.get(item.tierId)!;
+        for (let i = 0; i < item.quantity; i++) {
+          const code = generateReference("QR");
+          const sig = signHmac(code, secret);
+          const qrToken = `${code}.${sig}`;
+          await tx.ticket.create({
+            data: {
+              bookingId: booking.id,
+              tierId: tier.id,
+              code,
+              qrTokenHash: hashToken(qrToken),
+            },
+          });
+          if (isCardAuto) {
             issuedTickets.push({ code, qrToken, tierName: tier.name });
           }
         }
+      }
 
+      if (isCardAuto) {
         await this.ledger.postBookingCapture(
           {
             bookingId: booking.id,
@@ -252,13 +260,26 @@ export class TicketingService {
 
   /** Atomic duplicate-scan prevention for event-day check-in. */
   async checkIn(qrToken: string, staffId: string, staffRole: string) {
-    const tokenHash = hashToken(qrToken.trim());
+    const raw = qrToken.trim();
+    const tokenHash = hashToken(raw);
     return this.prisma.$transaction(async (tx) => {
-      const ticket = await tx.ticket.findUnique({
-        where: { qrTokenHash: tokenHash },
-        include: { tier: { select: { name: true } }, booking: { select: { reference: true, buyerName: true } } },
+      // Find by hash of full qrToken, or by human-readable ticket code if gate operator enters it
+      const ticket = await tx.ticket.findFirst({
+        where: {
+          OR: [{ qrTokenHash: tokenHash }, { code: raw.toUpperCase() }],
+        },
+        include: {
+          tier: { select: { name: true } },
+          booking: { select: { reference: true, buyerName: true, status: true } },
+        },
       });
       if (!ticket) throw new NotFoundException("Invalid ticket QR code.");
+
+      if (ticket.booking.status !== "CONFIRMED") {
+        throw new ConflictException(
+          `Cannot check in: booking is ${ticket.booking.status.replace(/_/g, " ").toLowerCase()}.`,
+        );
+      }
 
       const updated = await tx.$executeRaw`
         UPDATE "Ticket"
@@ -349,32 +370,149 @@ export class TicketingService {
   }
 }
 
+// ─── Hold Release Service ────────────────────────────────────────────────────
+/** Restores inventory for expired, unconsumed holds. Run as a periodic job. */
+@Injectable()
+export class HoldReleaseService {
+  private readonly logger = new Logger(HoldReleaseService.name);
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  async releaseExpired(): Promise<{ released: number }> {
+    const now = new Date();
+    // Find expired holds that were never consumed or manually released
+    const expired = await this.prisma.inventoryHold.findMany({
+      where: { expiresAt: { lt: now }, consumedAt: null, releasedAt: null },
+      select: { id: true, tierId: true, quantity: true },
+    });
+
+    if (expired.length === 0) return { released: 0 };
+
+    // Group by tierId and restore available counts in one transaction
+    const grouped = new Map<string, { ids: string[]; quantity: number }>();
+    for (const h of expired) {
+      const entry = grouped.get(h.tierId) ?? { ids: [], quantity: 0 };
+      entry.ids.push(h.id);
+      entry.quantity += h.quantity;
+      grouped.set(h.tierId, entry);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const [tierId, { ids, quantity }] of grouped) {
+        await tx.$executeRaw`
+          UPDATE "TicketTier" SET "available" = "available" + ${quantity}
+          WHERE "id" = ${tierId}
+        `;
+        await tx.inventoryHold.updateMany({
+          where: { id: { in: ids } },
+          data: { releasedAt: now },
+        });
+      }
+    });
+
+    this.logger.log(`Released ${expired.length} expired holds across ${grouped.size} tiers`);
+    return { released: expired.length };
+  }
+}
+
+// ─── Booking Lookup (buyer self-service) ─────────────────────────────────────
+class BookingLookupDto {
+  @IsString() @MinLength(3) @MaxLength(60) reference!: string;
+  @IsEmail() @MaxLength(254) email!: string;
+}
+
+@Injectable()
+export class BookingLookupService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async lookup(reference: string, email: string) {
+    const booking = await this.prisma.ticketBooking.findFirst({
+      where: {
+        reference: reference.toUpperCase().trim(),
+        buyerEmail: email.toLowerCase().trim(),
+      },
+      include: {
+        event: { select: { title: true, startsAt: true, venue: true, city: true } },
+        tickets: {
+          select: { code: true, status: true, tier: { select: { name: true } }, checkedInAt: true },
+        },
+      },
+    });
+    if (!booking) throw new NotFoundException("Booking not found or email does not match.");
+
+    const secret = process.env.QR_HMAC_SECRET ?? "dev-secret";
+    const isConfirmed = booking.status === "CONFIRMED";
+
+    return {
+      reference: booking.reference,
+      status: booking.status,
+      totalMinor: booking.totalMinor,
+      currency: booking.currency,
+      buyerName: booking.buyerName,
+      event: booking.event,
+      tickets: booking.tickets.map((t) => {
+        // Construct authentic signed qrToken only for confirmed bookings
+        const sig = signHmac(t.code, secret);
+        const qrToken = isConfirmed ? `${t.code}.${sig}` : "";
+        return {
+          code: t.code,
+          qrToken,
+          tierName: t.tier.name,
+          status: isConfirmed ? t.status : "PENDING_CONFIRMATION",
+          checkedInAt: t.checkedInAt,
+        };
+      }),
+    };
+  }
+}
+
+// ─── Controller ──────────────────────────────────────────────────────────────
 @Controller("v1/ticketing")
 export class TicketingController {
-  constructor(private readonly ticketing: TicketingService) {}
+  constructor(
+    private readonly ticketing: TicketingService,
+    private readonly holdRelease: HoldReleaseService,
+    private readonly bookingLookup: BookingLookupService,
+  ) {}
 
+  /** Tighter throttle: 10 holds per minute per IP to prevent inventory squatting */
   @Post("holds")
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   createHolds(@Body() dto: CreateHoldsDto) {
     return this.ticketing.createHolds(dto.items);
   }
 
+  /** Idempotent checkout — throttled to 10 per minute per IP */
   @Post("checkout")
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   checkout(@Body() dto: CheckoutDto, @Headers("idempotency-key") idempotencyKey?: string) {
     return this.ticketing.checkout(dto, idempotencyKey);
   }
 
+  /** Buyer self-service: look up booking by reference + email */
+  @Post("booking/lookup")
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  lookupBooking(@Body() dto: BookingLookupDto) {
+    return this.bookingLookup.lookup(dto.reference, dto.email);
+  }
+
+  /** OTP recovery — throttled hard: 5 per 10 minutes per IP */
   @Post("recovery/request")
   @HttpCode(200)
+  @Throttle({ default: { ttl: 600000, limit: 5 } })
   requestOtp(@Body() dto: RecoveryRequestDto) {
     return this.ticketing.requestRecoveryOtp(dto.email);
   }
 
   @Post("recovery/verify")
   @HttpCode(200)
+  @Throttle({ default: { ttl: 600000, limit: 10 } })
   verifyOtp(@Body() dto: RecoveryVerifyDto) {
     return this.ticketing.verifyRecoveryOtp(dto.email, dto.otp);
   }
 
+  /** Staff: scan QR at event gate */
   @Post("checkin")
   @UseGuards(StaffAuthGuard, RolesGuard)
   @Roles("CHECKIN_OPERATOR", "EVENT_MANAGER")
@@ -382,12 +520,21 @@ export class TicketingController {
   checkIn(@Body() dto: CheckinDto, @Req() req: AuthenticatedRequest) {
     return this.ticketing.checkIn(dto.qrToken, req.staff!.userId, req.staff!.role);
   }
+
+  /** Staff: manually trigger hold release (also runs via cron-like scheduler) */
+  @Post("admin/release-holds")
+  @UseGuards(StaffAuthGuard, RolesGuard)
+  @Roles("EVENT_MANAGER")
+  @HttpCode(200)
+  releaseHolds() {
+    return this.holdRelease.releaseExpired();
+  }
 }
 
 @Module({
   imports: [LedgerModule],
   controllers: [TicketingController],
-  providers: [TicketingService],
-  exports: [TicketingService],
+  providers: [TicketingService, HoldReleaseService, BookingLookupService],
+  exports: [TicketingService, HoldReleaseService],
 })
 export class TicketingModule {}

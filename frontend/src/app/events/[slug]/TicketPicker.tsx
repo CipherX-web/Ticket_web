@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import type { EventItem } from "@/data/events";
 import { checkoutTickets, createTicketHolds } from "@/lib/api";
 import { formatLkr } from "@/lib/format";
@@ -17,6 +18,7 @@ export function TicketPicker({ event }: { event: EventItem & { id?: string } }) 
     reference: string;
     status: string;
     totalMinor: number;
+    buyerEmail: string;
     tickets: Array<{ code: string; qrToken: string; tierName: string }>;
   } | null>(null);
 
@@ -61,7 +63,7 @@ export function TicketPicker({ event }: { event: EventItem & { id?: string } }) 
         },
         crypto.randomUUID(),
       );
-      setConfirmation(res);
+      setConfirmation({ ...res, buyerEmail: parsed.data.email });
       setQty({});
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Checkout failed.");
@@ -124,27 +126,46 @@ export function TicketPicker({ event }: { event: EventItem & { id?: string } }) 
       {serverError && <p role="alert" className="border border-danger/30 bg-danger/5 p-3 text-sm text-danger">{serverError}</p>}
 
       <Button type="submit" disabled={submitting} className="w-full">
-        {submitting ? "Reserving & Issuing..." : "Continue to payment"}
+        {submitting ? "Reserving & Issuing…" : "Continue to payment"}
       </Button>
 
       {confirmation && (
         <div role="status" className="space-y-3 border border-forest bg-sage-soft p-4 text-sm text-forest">
-          <p className="font-medium">Booking {confirmation.reference} · {confirmation.status}</p>
+          <p className="font-medium">Booking {confirmation.reference} · {confirmation.status.replace(/_/g, " ")}</p>
           <p>Total: {formatLkr(confirmation.totalMinor)}</p>
+
           {confirmation.tickets.length > 0 ? (
-            <ul className="space-y-1 border-t border-line pt-2 text-xs">
-              {confirmation.tickets.map((tk) => (
-                <li key={tk.code} className="flex justify-between font-mono">
-                  <span>{tk.tierName}</span>
-                  <span>{tk.code}</span>
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="space-y-1 border-t border-line pt-2 text-xs">
+                {confirmation.tickets.map((tk) => (
+                  <li key={tk.code} className="flex justify-between font-mono">
+                    <span>{tk.tierName}</span>
+                    <span>{tk.code}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href={`/tickets/${confirmation.reference}?email=${encodeURIComponent(confirmation.buyerEmail)}`}
+                className="mt-2 block text-center text-sm font-medium underline hover:no-underline"
+              >
+                View & download your QR tickets →
+              </Link>
+            </>
           ) : (
-            <p className="text-xs text-muted">Bank transfer is awaiting finance reconciliation before QR issuance.</p>
+            <p className="text-xs text-muted">
+              Bank transfer is awaiting finance reconciliation before QR issuance. You will receive an email when your tickets are ready.
+            </p>
           )}
         </div>
       )}
+
+      <p className="text-center text-xs text-muted">
+        Lost your tickets?{" "}
+        <Link href="/tickets/recover" className="underline hover:text-forest">
+          Recover by email
+        </Link>
+      </p>
     </form>
   );
 }
+
