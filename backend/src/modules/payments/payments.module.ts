@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   Headers,
   HttpCode,
   Injectable,
@@ -14,6 +15,7 @@ import {
   UnauthorizedException,
   UseGuards,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { IsOptional, IsString, MaxLength } from "class-validator";
 import type { Request } from "express";
 import * as crypto from "crypto";
@@ -94,8 +96,23 @@ export class PaymentsService {
     const currency = booking.currency ?? "LKR";
 
     const baseUrl = process.env.PUBLIC_APP_URL ?? "http://localhost:3000";
-    const returnUrl = dto.returnUrl ?? `${baseUrl}/checkout/return?reference=${encodeURIComponent(booking.reference)}&email=${encodeURIComponent(booking.buyerEmail)}`;
-    const cancelUrl = dto.cancelUrl ?? `${baseUrl}/checkout/return?reference=${encodeURIComponent(booking.reference)}&status=cancelled`;
+    // Sanitize redirect URLs: strictly allow only same-origin relative paths or verified app origin
+    const sanitizeUrl = (url?: string, fallback = "") => {
+      if (!url) return fallback;
+      try {
+        const parsed = new URL(url, baseUrl);
+        const baseParsed = new URL(baseUrl);
+        if (parsed.origin !== baseParsed.origin) return fallback;
+        return parsed.toString();
+      } catch {
+        return fallback;
+      }
+    };
+
+    const defaultReturn = `${baseUrl}/checkout/return?reference=${encodeURIComponent(booking.reference)}&email=${encodeURIComponent(booking.buyerEmail)}`;
+    const defaultCancel = `${baseUrl}/checkout/return?reference=${encodeURIComponent(booking.reference)}&status=cancelled`;
+    const returnUrl = sanitizeUrl(dto.returnUrl, defaultReturn);
+    const cancelUrl = sanitizeUrl(dto.cancelUrl, defaultCancel);
     const notifyUrl = process.env.PAYMENT_NOTIFY_URL ?? `${process.env.PUBLIC_API_URL ?? "http://localhost:4000/v1"}/payments/payhere-notify`;
 
     if (provider === "PAYHERE") {
@@ -418,26 +435,51 @@ export class PaymentsService {
       return updated;
     });
   }
+
+  async listPendingReconciliations() {
+    return this.prisma.payment.findMany({
+      where: { method: "BANK_TRANSFER", status: "MANUAL_REVIEW" },
+      include: {
+        booking: {
+          include: {
+            event: { select: { title: true, startsAt: true } },
+            tickets: { select: { code: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
 }
 
 @Controller("v1/payments")
 export class PaymentsController {
   constructor(private readonly payments: PaymentsService) {}
 
+  @Get("pending-reconciliations")
+  @UseGuards(StaffAuthGuard, RolesGuard)
+  @Roles("FINANCE_STAFF", "EVENT_MANAGER")
+  listPending() {
+    return this.payments.listPendingReconciliations();
+  }
+
   @Post("session")
   @HttpCode(200)
+  @Throttle({ default: { ttl: 60000, limit: 15 } })
   createSession(@Body() dto: CreatePaymentSessionDto) {
     return this.payments.createPaymentSession(dto);
   }
 
   @Post("payhere-notify")
   @HttpCode(200)
+  @Throttle({ default: { ttl: 60000, limit: 60 } })
   payHereNotify(@Body() body: PayHereNotifyDto) {
     return this.payments.handlePayHereNotify(body);
   }
 
   @Post("webhook")
   @HttpCode(200)
+  @Throttle({ default: { ttl: 60000, limit: 60 } })
   webhook(
     @Req() req: RawBodyRequest<Request>,
     @Headers("x-printx-signature") signature: string | undefined,

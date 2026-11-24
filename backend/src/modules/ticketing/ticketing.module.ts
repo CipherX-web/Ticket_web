@@ -3,9 +3,11 @@ import {
   Body,
   ConflictException,
   Controller,
+  forwardRef,
   Get,
   Headers,
   HttpCode,
+  Inject,
   Injectable,
   Logger,
   Module,
@@ -78,6 +80,7 @@ export class TicketingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ledger: LedgerService,
+    @Inject(forwardRef(() => NotificationsService))
     private readonly notifications: NotificationsService,
     private readonly audit: AuditService,
   ) {}

@@ -9,6 +9,15 @@ const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
+  async rewrites() {
+    const backendUrl = process.env.BACKEND_INTERNAL_URL || "http://localhost:4000";
+    return [
+      {
+        source: "/v1/:path*",
+        destination: `${backendUrl}/v1/:path*`,
+      },
+    ];
+  },
   async headers() {
     return [
       {

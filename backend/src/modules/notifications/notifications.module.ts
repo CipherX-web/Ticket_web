@@ -1,9 +1,9 @@
-import { Controller, forwardRef, Get, Global, HttpCode, Injectable, Logger, Module, Post, Req, UseGuards } from "@nestjs/common";
+import { Controller, forwardRef, Get, Global, HttpCode, Inject, Injectable, Logger, Module, Post, Req, UseGuards } from "@nestjs/common";
+import { Cron, CronExpression } from "@nestjs/schedule";
 import { Prisma } from "@prisma/client";
 import { AuthenticatedRequest, Roles, RolesGuard, StaffAuthGuard } from "@/common/auth.guard";
 import { PrismaService } from "@/common/prisma.service";
-import { ScheduledTasksService } from "./tasks.service";
-import { TicketingModule } from "@/modules/ticketing/ticketing.module";
+import { HoldReleaseService, TicketingModule } from "@/modules/ticketing/ticketing.module";
 
 // ─── Enqueue service (unchanged contract) ─────────────────────────────────────
 
@@ -345,6 +345,43 @@ export class OutboxProcessorService {
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`Notify.lk API error (${res.status}): ${text}`);
+    }
+  }
+}
+
+// ─── Scheduled Background Tasks (Cron) ─────────────────────────────────────────
+
+@Injectable()
+export class ScheduledTasksService {
+  private readonly logger = new Logger(ScheduledTasksService.name);
+
+  constructor(
+    private readonly outboxProcessor: OutboxProcessorService,
+    @Inject(forwardRef(() => HoldReleaseService))
+    private readonly holdRelease: HoldReleaseService,
+  ) {}
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  async handleOutbox() {
+    try {
+      const res = await this.outboxProcessor.runOnce();
+      if (res.processed > 0 || res.failed > 0) {
+        this.logger.log(`Outbox cron: ${res.processed} sent, ${res.failed} failed`);
+      }
+    } catch (err) {
+      this.logger.error("Outbox cron execution failed", err);
+    }
+  }
+
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async handleExpiredHolds() {
+    try {
+      const res = await this.holdRelease.releaseExpired();
+      if (res.released > 0) {
+        this.logger.log(`Hold release cron: restored ${res.released} expired ticket holds`);
+      }
+    } catch (err) {
+      this.logger.error("Hold release cron execution failed", err);
     }
   }
 }
