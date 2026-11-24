@@ -179,6 +179,27 @@ export function checkoutTickets(
   });
 }
 
+export function createPaymentSession(payload: {
+  bookingId: string;
+  returnUrl?: string;
+  cancelUrl?: string;
+}) {
+  return request<{
+    bookingReference: string;
+    amountFormatted: string;
+    currency: string;
+    gateway: {
+      provider: "PAYHERE" | "WEBXPAY" | "GENERIC";
+      actionUrl: string;
+      method: "POST" | "GET";
+      fields: Record<string, string>;
+    };
+  }>("/payments/session", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export interface PublicInvitation {
   guestName: string;
   maxPartySize: number;

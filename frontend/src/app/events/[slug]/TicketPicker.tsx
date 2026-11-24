@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { EventItem } from "@/data/events";
-import { checkoutTickets, createTicketHolds } from "@/lib/api";
+import { checkoutTickets, createPaymentSession, createTicketHolds } from "@/lib/api";
 import { formatLkr } from "@/lib/format";
 import { fieldErrors, guestSchema } from "@/lib/validation";
 import { Button } from "@/components/Button";
@@ -30,6 +30,24 @@ export function TicketPicker({ event }: { event: EventItem & { id?: string } }) 
     setConfirmation(null);
     setServerError("");
     setQty((s) => ({ ...s, [id]: Math.min(max, Math.max(0, (s[id] ?? 0) + delta)) }));
+  }
+
+  function submitHostedPaymentForm(actionUrl: string, method: string, fields: Record<string, string>) {
+    const form = document.createElement("form");
+    form.method = method;
+    form.action = actionUrl;
+    form.style.display = "none";
+
+    for (const [key, value] of Object.entries(fields)) {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = key;
+      input.value = value;
+      form.appendChild(input);
+    }
+
+    document.body.appendChild(form);
+    form.submit();
   }
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -63,6 +81,24 @@ export function TicketPicker({ event }: { event: EventItem & { id?: string } }) 
         },
         crypto.randomUUID(),
       );
+
+      // If buyer selected Card payment, redirect to payment gateway
+      if (method === "CARD_GATEWAY" && res.status !== "CONFIRMED") {
+        const session = await createPaymentSession({
+          bookingId: res.bookingId,
+          returnUrl: `${window.location.origin}/checkout/return?reference=${encodeURIComponent(res.reference)}&email=${encodeURIComponent(parsed.data.email)}`,
+          cancelUrl: `${window.location.origin}/checkout/return?reference=${encodeURIComponent(res.reference)}&status=cancelled`,
+        });
+
+        if (session.gateway.method === "POST") {
+          submitHostedPaymentForm(session.gateway.actionUrl, "POST", session.gateway.fields);
+          return;
+        } else if (session.gateway.actionUrl) {
+          window.location.href = session.gateway.actionUrl;
+          return;
+        }
+      }
+
       setConfirmation({ ...res, buyerEmail: parsed.data.email });
       setQty({});
     } catch (err) {
