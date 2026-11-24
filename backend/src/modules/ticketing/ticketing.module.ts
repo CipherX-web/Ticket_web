@@ -332,7 +332,7 @@ export class TicketingService {
       channel: "EMAIL",
       recipient: normalized,
       template: "TICKET_RECOVERY_OTP",
-      payload: { expiresInMinutes: 10 },
+      payload: { otp, expiresInMinutes: 10 },
     });
     return { sent: true, message: "If bookings exist for this email, a 6-digit code has been sent." };
   }

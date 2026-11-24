@@ -18,7 +18,7 @@
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
-    "@nestjs/schedule": "^12.0.4",
+    "@nestjs/schedule": "^5.0.1",
     "@nestjs/throttler": "^6.3.0",
     "@prisma/client": "^6.6.0",
     "argon2": "^0.43.0",
@@ -32,7 +32,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@nestjs/cli": "^12.0.15",
+    "@nestjs/cli": "^11.0.0",
     "@nestjs/testing": "^11.0.0",
     "@types/cookie-parser": "^1.4.8",
     "@types/cron": "^2.0.1",
@@ -47,7 +47,9 @@
   },
   "overrides": {
     "deepmerge-ts": "^8.0.2",
-    "effect": "^3.22.5"
+    "effect": "^3.22.5",
+    "glob": "^14.0.6",
+    "minimatch": "^11.0.9"
   },
   "jest": {
     "moduleFileExtensions": [

@@ -1,7 +1,9 @@
-import { Controller, Get, Global, HttpCode, Injectable, Logger, Module, Post, Req, UseGuards } from "@nestjs/common";
+import { Controller, forwardRef, Get, Global, HttpCode, Injectable, Logger, Module, Post, Req, UseGuards } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { AuthenticatedRequest, Roles, RolesGuard, StaffAuthGuard } from "@/common/auth.guard";
 import { PrismaService } from "@/common/prisma.service";
+import { ScheduledTasksService } from "./tasks.service";
+import { TicketingModule } from "@/modules/ticketing/ticketing.module";
 
 // ─── Enqueue service (unchanged contract) ─────────────────────────────────────
 
@@ -115,30 +117,235 @@ export class OutboxProcessorService {
     });
   }
 
-  // ── Provider stubs (replace with real SDK calls) ───────────────────────────
+  // ── Provider implementations (Resend / SendGrid / Twilio / Notify.lk) ────
 
   private async sendEmail(to: string, template: string, payload: Record<string, unknown>) {
-    // TODO: wire to your email provider (SendGrid / AWS SES / Resend etc.)
-    // Example payload structures:
-    //   TICKETS_ISSUED  → { reference, ticketCount }
-    //   TICKET_RECOVERY_OTP → { expiresInMinutes }
-    this.logger.log(`[EMAIL STUB] to=${to} template=${template} payload=${JSON.stringify(payload)}`);
-    if (!process.env.EMAIL_PROVIDER_API_KEY) {
-      // No provider configured — log and treat as sent in dev
+    const resendApiKey = process.env.RESEND_API_KEY;
+    const sendgridApiKey = process.env.SENDGRID_API_KEY;
+    const fromEmail = process.env.EMAIL_FROM_ADDRESS ?? "tickets@printxads.lk";
+    const appUrl = process.env.FRONTEND_APP_URL ?? "http://localhost:3000";
+
+    const { subject, html } = this.renderEmailTemplate(template, to, payload, appUrl);
+
+    // 1. Try Resend if configured
+    if (resendApiKey) {
+      await this.sendViaResend(resendApiKey, fromEmail, to, subject, html);
       return;
     }
-    // Replace with real SDK call, e.g.:
-    // await sendgrid.send({ to, templateId: templateIdMap[template], dynamicTemplateData: payload });
-    throw new Error("EMAIL_PROVIDER_API_KEY set but no real email provider is wired yet.");
+
+    // 2. Try SendGrid if configured
+    if (sendgridApiKey) {
+      await this.sendViaSendgrid(sendgridApiKey, fromEmail, to, subject, html);
+      return;
+    }
+
+    // 3. Fallback dev logger when no API keys are set in environment
+    this.logger.log(`[EMAIL DEV STUB] to=${to} subject="${subject}" payload=${JSON.stringify(payload)}`);
   }
 
   private async sendWhatsApp(to: string, template: string, payload: Record<string, unknown>) {
-    // TODO: wire to your WhatsApp provider (Twilio / Dialog Axiata)
-    this.logger.log(`[WHATSAPP STUB] to=${to} template=${template} payload=${JSON.stringify(payload)}`);
-    if (!process.env.WHATSAPP_API_KEY) {
+    const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
+    const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
+    const twilioFrom = process.env.TWILIO_FROM_NUMBER; // e.g. "whatsapp:+14155238886" or "+14155238886"
+
+    const notifylkUserId = process.env.NOTIFYLK_USER_ID;
+    const notifylkApiKey = process.env.NOTIFYLK_API_KEY;
+    const notifylkSenderId = process.env.NOTIFYLK_SENDER_ID ?? "NotifyDEMO";
+
+    const appUrl = process.env.FRONTEND_APP_URL ?? "http://localhost:3000";
+    const message = this.renderSmsTemplate(template, to, payload, appUrl);
+
+    // 1. Try Twilio if configured
+    if (twilioAccountSid && twilioAuthToken && twilioFrom) {
+      await this.sendViaTwilio(twilioAccountSid, twilioAuthToken, twilioFrom, to, message);
       return;
     }
-    throw new Error("WHATSAPP_API_KEY set but no real WhatsApp provider is wired yet.");
+
+    // 2. Try Notify.lk (Sri Lanka SMS) if configured
+    if (notifylkUserId && notifylkApiKey) {
+      await this.sendViaNotifyLk(notifylkUserId, notifylkApiKey, notifylkSenderId, to, message);
+      return;
+    }
+
+    // 3. Fallback dev logger when no SMS/WhatsApp provider is configured
+    this.logger.log(`[WHATSAPP/SMS DEV STUB] to=${to} message="${message}"`);
+  }
+
+  // ── Template Renderers ───────────────────────────────────────────────────
+
+  private renderEmailTemplate(template: string, to: string, payload: Record<string, unknown>, appUrl: string) {
+    if (template === "TICKETS_ISSUED") {
+      const reference = String(payload.reference ?? "");
+      const count = Number(payload.ticketCount ?? 1);
+      const viewUrl = `${appUrl}/tickets/${encodeURIComponent(reference)}?email=${encodeURIComponent(to)}`;
+
+      return {
+        subject: `Your Print X Tickets [${reference}]`,
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 32px 24px; background-color: #F7F5EF; color: #334B45;">
+            <div style="text-align: center; margin-bottom: 24px;">
+              <h1 style="font-size: 26px; font-weight: 700; color: #334B45; margin: 0; letter-spacing: -0.5px;">PRINT X</h1>
+              <p style="font-size: 13px; text-transform: uppercase; letter-spacing: 2px; color: #8FAF9E; margin-top: 4px;">Digital Event Pass</p>
+            </div>
+            <div style="background-color: #FFFFFF; border: 1px solid #E6E4DD; padding: 28px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+              <h2 style="font-size: 20px; font-weight: 600; color: #334B45; margin-top: 0;">Your tickets are ready!</h2>
+              <p style="font-size: 15px; line-height: 1.5; color: #555;">
+                Thank you for your order. We have issued <strong>${count} ticket${count > 1 ? "s" : ""}</strong> under booking reference <strong style="font-family: monospace; color: #334B45;">${reference}</strong>.
+              </p>
+              <div style="margin: 28px 0; text-align: center;">
+                <a href="${viewUrl}" style="background-color: #334B45; color: #FFFFFF; padding: 14px 28px; text-decoration: none; border-radius: 2px; font-size: 15px; font-weight: 600; display: inline-block;">
+                  View & Download QR Tickets →
+                </a>
+              </div>
+              <p style="font-size: 13px; line-height: 1.5; color: #777;">
+                Present the digital QR code on your phone at the entrance gate for entry scanning.
+              </p>
+            </div>
+            <div style="text-align: center; margin-top: 24px; font-size: 12px; color: #888;">
+              <p>Print X · printxads.lk · Sri Lanka</p>
+            </div>
+          </div>
+        `,
+      };
+    }
+
+    if (template === "TICKET_RECOVERY_OTP") {
+      const otp = String(payload.otp ?? "");
+      const expiry = Number(payload.expiresInMinutes ?? 10);
+
+      return {
+        subject: `Your Print X Verification Code: ${otp}`,
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 32px 24px; background-color: #F7F5EF; color: #334B45;">
+            <div style="text-align: center; margin-bottom: 24px;">
+              <h1 style="font-size: 26px; font-weight: 700; color: #334B45; margin: 0; letter-spacing: -0.5px;">PRINT X</h1>
+            </div>
+            <div style="background-color: #FFFFFF; border: 1px solid #E6E4DD; padding: 28px; border-radius: 4px; text-align: center;">
+              <h2 style="font-size: 18px; font-weight: 600; color: #334B45; margin-top: 0;">Ticket Recovery Code</h2>
+              <p style="font-size: 14px; color: #555;">Use the one-time verification code below to access your bookings:</p>
+              <div style="display: inline-block; padding: 14px 28px; background: #F7F5EF; border: 1px dashed #334B45; font-family: monospace; font-size: 32px; font-weight: 700; letter-spacing: 6px; color: #334B45; margin: 16px 0;">
+                ${otp}
+              </div>
+              <p style="font-size: 12px; color: #777;">This code is valid for ${expiry} minutes. If you did not request this, please disregard this email.</p>
+            </div>
+          </div>
+        `,
+      };
+    }
+
+    return {
+      subject: `Print X Notification: ${template}`,
+      html: `<div style="font-family: sans-serif; padding: 16px;"><p>${JSON.stringify(payload)}</p></div>`,
+    };
+  }
+
+  private renderSmsTemplate(template: string, to: string, payload: Record<string, unknown>, appUrl: string): string {
+    if (template === "TICKETS_ISSUED") {
+      const reference = String(payload.reference ?? "");
+      const count = Number(payload.ticketCount ?? 1);
+      const viewUrl = `${appUrl}/tickets/${encodeURIComponent(reference)}?email=${encodeURIComponent(to)}`;
+      return `Print X: Your ${count} ticket(s) [Ref: ${reference}] are confirmed! View your scannable QR pass: ${viewUrl}`;
+    }
+
+    if (template === "TICKET_RECOVERY_OTP") {
+      const otp = String(payload.otp ?? "");
+      const expiry = Number(payload.expiresInMinutes ?? 10);
+      return `Print X: Your verification code is ${otp}. Valid for ${expiry} minutes. Do not share this code.`;
+    }
+
+    return `Print X: ${template} - ${JSON.stringify(payload)}`;
+  }
+
+  // ── HTTP API Dispatchers ─────────────────────────────────────────────────
+
+  private async sendViaResend(apiKey: string, from: string, to: string, subject: string, html: string): Promise<void> {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: `Print X <${from}>`,
+        to: [to],
+        subject,
+        html,
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Resend API error (${res.status}): ${text}`);
+    }
+  }
+
+  private async sendViaSendgrid(apiKey: string, from: string, to: string, subject: string, html: string): Promise<void> {
+    const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: to }] }],
+        from: { email: from, name: "Print X" },
+        subject,
+        content: [{ type: "text/html", value: html }],
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`SendGrid API error (${res.status}): ${text}`);
+    }
+  }
+
+  private async sendViaTwilio(accountSid: string, authToken: string, from: string, to: string, body: string): Promise<void> {
+    const cleanTo = to.trim();
+    const isWhatsApp = from.startsWith("whatsapp:");
+    const recipient = isWhatsApp && !cleanTo.startsWith("whatsapp:") ? `whatsapp:${cleanTo.replace(/\s+/g, "")}` : cleanTo;
+
+    const params = new URLSearchParams();
+    params.append("From", from);
+    params.append("To", recipient);
+    params.append("Body", body);
+
+    const auth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${auth}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params.toString(),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Twilio API error (${res.status}): ${text}`);
+    }
+  }
+
+  private async sendViaNotifyLk(userId: string, apiKey: string, senderId: string, to: string, message: string): Promise<void> {
+    const cleanNumber = to.replace(/[^0-9]/g, "");
+    const res = await fetch("https://app.notify.lk/api/v1/send", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        api_key: apiKey,
+        sender_id: senderId,
+        to: cleanNumber,
+        message,
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Notify.lk API error (${res.status}): ${text}`);
+    }
   }
 }
 
@@ -169,8 +376,9 @@ export class NotificationsAdminController {
 
 @Global()
 @Module({
+  imports: [forwardRef(() => TicketingModule)],
   controllers: [NotificationsAdminController],
-  providers: [NotificationsService, OutboxProcessorService],
+  providers: [NotificationsService, OutboxProcessorService, ScheduledTasksService],
   exports: [NotificationsService, OutboxProcessorService],
 })
 export class NotificationsModule {}
