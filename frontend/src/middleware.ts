@@ -23,7 +23,7 @@ export function middleware(request: NextRequest) {
     "frame-src 'none'",
     "object-src 'none'",
     "base-uri 'self'",
-    "form-action 'self'",
+    "form-action 'self' https://sandbox.payhere.lk https://www.payhere.lk",
     "frame-ancestors 'none'",
     ...(dev ? [] : ["upgrade-insecure-requests"]),
   ].join("; ");
