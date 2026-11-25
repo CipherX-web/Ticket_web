@@ -12,6 +12,7 @@ import {
   Logger,
   Module,
   NotFoundException,
+  Param,
   Post,
   Query,
   Req,
@@ -346,6 +347,167 @@ export class TicketingService {
     });
     return { bookings };
   }
+
+  // ── Staff Admin Endpoints ──────────────────────────────────────────────────
+
+  listBookings(filters?: { eventId?: string; status?: string; q?: string }) {
+    const q = filters?.q?.trim();
+    return this.prisma.ticketBooking.findMany({
+      where: {
+        ...(filters?.eventId && { eventId: filters.eventId }),
+        ...(filters?.status && { status: filters.status as any }),
+        ...(q && {
+          OR: [
+            { reference: { contains: q, mode: "insensitive" } },
+            { buyerName: { contains: q, mode: "insensitive" } },
+            { buyerEmail: { contains: q, mode: "insensitive" } },
+            { buyerWhatsapp: { contains: q, mode: "insensitive" } },
+          ],
+        }),
+      },
+      include: {
+        event: { select: { id: true, title: true, slug: true, startsAt: true, venue: true } },
+        tickets: {
+          select: {
+            id: true,
+            code: true,
+            status: true,
+            checkedInAt: true,
+            tier: { select: { id: true, name: true, code: true, priceMinor: true } },
+          },
+        },
+        payments: {
+          select: { id: true, method: true, status: true, amountMinor: true, providerRef: true, verifiedAt: true, createdAt: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+  }
+
+  async cancelBooking(bookingId: string, staffId: string, staffRole: string) {
+    const booking = await this.prisma.ticketBooking.findUnique({
+      where: { id: bookingId },
+      include: { tickets: true },
+    });
+    if (!booking) throw new NotFoundException("Booking not found.");
+    if (booking.status === "CANCELLED" || booking.status === "REFUNDED") {
+      throw new BadRequestException(`Booking is already ${booking.status}.`);
+    }
+    if (booking.tickets.some((t) => t.status === "CHECKED_IN")) {
+      throw new BadRequestException("Cannot cancel a booking that already has checked-in tickets.");
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.ticketBooking.update({
+        where: { id: bookingId },
+        data: { status: "CANCELLED" },
+      });
+
+      await tx.ticket.updateMany({
+        where: { bookingId },
+        data: { status: "CANCELLED" },
+      });
+
+      // Restore tier availability counts
+      const tierCounts = new Map<string, number>();
+      for (const tk of booking.tickets) {
+        tierCounts.set(tk.tierId, (tierCounts.get(tk.tierId) ?? 0) + 1);
+      }
+      for (const [tierId, qty] of tierCounts.entries()) {
+        await tx.ticketTier.update({
+          where: { id: tierId },
+          data: { available: { increment: qty } },
+        });
+      }
+
+      await this.audit.record(
+        {
+          actorId: staffId,
+          actorRole: staffRole,
+          action: "BOOKING_CANCELLED",
+          resourceType: "TicketBooking",
+          resourceId: bookingId,
+          metadata: { reference: booking.reference, ticketCount: booking.tickets.length },
+        },
+        tx,
+      );
+
+      return { cancelled: true, id: bookingId, reference: booking.reference };
+    });
+  }
+
+  listAttendees(filters?: { eventId?: string; tierId?: string; status?: string; q?: string }) {
+    const q = filters?.q?.trim();
+    return this.prisma.ticket.findMany({
+      where: {
+        ...(filters?.tierId && { tierId: filters.tierId }),
+        ...(filters?.status && { status: filters.status as any }),
+        booking: {
+          ...(filters?.eventId && { eventId: filters.eventId }),
+          ...(q && {
+            OR: [
+              { reference: { contains: q, mode: "insensitive" } },
+              { buyerName: { contains: q, mode: "insensitive" } },
+              { buyerEmail: { contains: q, mode: "insensitive" } },
+              { buyerWhatsapp: { contains: q, mode: "insensitive" } },
+            ],
+          }),
+        },
+      },
+      include: {
+        tier: { select: { id: true, name: true, code: true, priceMinor: true } },
+        booking: {
+          select: {
+            id: true,
+            reference: true,
+            buyerName: true,
+            buyerEmail: true,
+            buyerWhatsapp: true,
+            status: true,
+            createdAt: true,
+            event: { select: { id: true, title: true, startsAt: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 300,
+    });
+  }
+
+  async checkInById(ticketId: string, staffId: string, staffRole: string) {
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { id: ticketId },
+      include: { booking: true, tier: true },
+    });
+    if (!ticket) throw new NotFoundException("Ticket not found.");
+    if (ticket.booking.status !== "CONFIRMED") {
+      throw new BadRequestException("Ticket booking is not confirmed for entry.");
+    }
+
+    const res = await this.prisma.ticket.updateMany({
+      where: { id: ticketId, status: "VALID" },
+      data: { status: "CHECKED_IN", checkedInAt: new Date(), checkedInBy: staffId },
+    });
+    if (res.count === 0) {
+      throw new ConflictException(
+        ticket.status === "CHECKED_IN"
+          ? `Already checked in at ${ticket.checkedInAt?.toISOString()}.`
+          : `Ticket status is ${ticket.status}.`,
+      );
+    }
+
+    await this.audit.record({
+      actorId: staffId,
+      actorRole: staffRole,
+      action: "TICKET_CHECKIN_ADMIN",
+      resourceType: "Ticket",
+      resourceId: ticket.id,
+      metadata: { code: ticket.code },
+    });
+
+    return { checkedIn: true, id: ticket.id, code: ticket.code, buyerName: ticket.booking.buyerName };
+  }
 }
 
 // ─── Hold Release Service ────────────────────────────────────────────────────
@@ -506,6 +668,49 @@ export class TicketingController {
   @HttpCode(200)
   releaseHolds() {
     return this.holdRelease.releaseExpired();
+  }
+
+  /** Staff: list all bookings with event, tickets, and payment info */
+  @Get("admin/bookings")
+  @UseGuards(StaffAuthGuard, RolesGuard)
+  @Roles("EVENT_MANAGER", "FINANCE_STAFF")
+  listBookings(
+    @Query("eventId") eventId?: string,
+    @Query("status") status?: string,
+    @Query("q") q?: string,
+  ) {
+    return this.ticketing.listBookings({ eventId, status, q });
+  }
+
+  /** Staff: cancel booking and restore inventory */
+  @Post("admin/bookings/:id/cancel")
+  @UseGuards(StaffAuthGuard, RolesGuard)
+  @Roles("EVENT_MANAGER", "FINANCE_STAFF")
+  @HttpCode(200)
+  cancelBooking(@Param("id") id: string, @Req() req: AuthenticatedRequest) {
+    return this.ticketing.cancelBooking(id, req.staff!.userId, req.staff!.role);
+  }
+
+  /** Staff: list attendees derived from real tickets + bookings */
+  @Get("admin/attendees")
+  @UseGuards(StaffAuthGuard, RolesGuard)
+  @Roles("EVENT_MANAGER", "CHECKIN_OPERATOR", "FINANCE_STAFF")
+  listAttendees(
+    @Query("eventId") eventId?: string,
+    @Query("tierId") tierId?: string,
+    @Query("status") status?: string,
+    @Query("q") q?: string,
+  ) {
+    return this.ticketing.listAttendees({ eventId, tierId, status, q });
+  }
+
+  /** Staff: check in an attendee by ticket id */
+  @Post("admin/tickets/:id/checkin")
+  @UseGuards(StaffAuthGuard, RolesGuard)
+  @Roles("CHECKIN_OPERATOR", "EVENT_MANAGER")
+  @HttpCode(200)
+  checkInById(@Param("id") id: string, @Req() req: AuthenticatedRequest) {
+    return this.ticketing.checkInById(id, req.staff!.userId, req.staff!.role);
   }
 }
 

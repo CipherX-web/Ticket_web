@@ -3,6 +3,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  Delete,
   Get,
   Injectable,
   Module,
@@ -63,6 +64,13 @@ class PatchEventDto {
   @IsOptional() @IsString() @MinLength(2) @MaxLength(1000) summary?: string;
   @IsOptional() @IsEnum(["AUTOMATIC", "MANUAL", "HYBRID"]) approvalMode?: "AUTOMATIC" | "MANUAL" | "HYBRID";
   @IsOptional() @IsBoolean() isPublished?: boolean;
+}
+
+class PatchTierDto {
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(120) name?: string;
+  @IsOptional() @IsInt() @Min(1) priceMinor?: number;
+  @IsOptional() @IsInt() @Min(1) capacity?: number;
+  @IsOptional() @IsInt() @Min(1) @Max(50) perOrderMax?: number;
 }
 
 // ─── Service ──────────────────────────────────────────────────────────────────
@@ -221,6 +229,96 @@ export class EventsService {
       confirmedRevenueMinor: totalRevenue._sum.totalMinor ?? 0,
     };
   }
+
+  async addTier(eventId: string, dto: CreateTierDto, staffId: string, staffRole: string) {
+    const event = await this.prisma.event.findUnique({ where: { id: eventId }, include: { tiers: true } });
+    if (!event) throw new NotFoundException("Event not found.");
+    const code = dto.code.toUpperCase().trim();
+    if (event.tiers.some((t) => t.code === code)) {
+      throw new ConflictException(`Tier code "${code}" already exists for this event.`);
+    }
+
+    const tier = await this.prisma.ticketTier.create({
+      data: {
+        eventId,
+        code,
+        name: dto.name.trim(),
+        priceMinor: dto.priceMinor,
+        capacity: dto.capacity,
+        available: dto.capacity,
+        perOrderMax: dto.perOrderMax,
+      },
+    });
+
+    await this.audit.record({
+      actorId: staffId,
+      actorRole: staffRole,
+      action: "TIER_CREATED",
+      resourceType: "TicketTier",
+      resourceId: tier.id,
+      metadata: { eventId, code, name: tier.name },
+    });
+
+    return tier;
+  }
+
+  async updateTier(tierId: string, dto: PatchTierDto, staffId: string, staffRole: string) {
+    const tier = await this.prisma.ticketTier.findUnique({ where: { id: tierId } });
+    if (!tier) throw new NotFoundException("Ticket tier not found.");
+
+    const soldOrHeld = tier.capacity - tier.available;
+    let nextAvailable = tier.available;
+    if (dto.capacity !== undefined) {
+      if (dto.capacity < soldOrHeld) {
+        throw new BadRequestException(`Cannot reduce capacity below ${soldOrHeld} already sold/held tickets.`);
+      }
+      nextAvailable = dto.capacity - soldOrHeld;
+    }
+
+    const updated = await this.prisma.ticketTier.update({
+      where: { id: tierId },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name.trim() }),
+        ...(dto.priceMinor !== undefined && { priceMinor: dto.priceMinor }),
+        ...(dto.capacity !== undefined && { capacity: dto.capacity, available: nextAvailable }),
+        ...(dto.perOrderMax !== undefined && { perOrderMax: dto.perOrderMax }),
+      },
+    });
+
+    await this.audit.record({
+      actorId: staffId,
+      actorRole: staffRole,
+      action: "TIER_UPDATED",
+      resourceType: "TicketTier",
+      resourceId: tierId,
+      metadata: JSON.parse(JSON.stringify(dto)),
+    });
+
+    return updated;
+  }
+
+  async deleteTier(tierId: string, staffId: string, staffRole: string) {
+    const tier = await this.prisma.ticketTier.findUnique({
+      where: { id: tierId },
+      include: { _count: { select: { tickets: true } } },
+    });
+    if (!tier) throw new NotFoundException("Ticket tier not found.");
+    if (tier._count.tickets > 0) {
+      throw new BadRequestException("Cannot delete a ticket category that already has issued bookings.");
+    }
+
+    await this.prisma.ticketTier.delete({ where: { id: tierId } });
+    await this.audit.record({
+      actorId: staffId,
+      actorRole: staffRole,
+      action: "TIER_DELETED",
+      resourceType: "TicketTier",
+      resourceId: tierId,
+      metadata: { eventId: tier.eventId, code: tier.code },
+    });
+
+    return { deleted: true, id: tierId };
+  }
 }
 
 // ─── Controller ──────────────────────────────────────────────────────────────
@@ -287,6 +385,27 @@ export class AdminEventsController {
   @Roles("EVENT_MANAGER", "FINANCE_STAFF")
   stats(@Param("id") id: string) {
     return this.events.getStats(id);
+  }
+
+  /** Staff: add ticket category (tier) to an event */
+  @Post(":id/tiers")
+  @Roles("EVENT_MANAGER")
+  addTier(@Param("id") id: string, @Body() dto: CreateTierDto, @Req() req: AuthenticatedRequest) {
+    return this.events.addTier(id, dto, req.staff!.userId, req.staff!.role);
+  }
+
+  /** Staff: edit ticket category (tier) */
+  @Patch("tiers/:tierId")
+  @Roles("EVENT_MANAGER")
+  updateTier(@Param("tierId") tierId: string, @Body() dto: PatchTierDto, @Req() req: AuthenticatedRequest) {
+    return this.events.updateTier(tierId, dto, req.staff!.userId, req.staff!.role);
+  }
+
+  /** Staff: delete unused ticket category (tier) */
+  @Delete("tiers/:tierId")
+  @Roles("EVENT_MANAGER")
+  deleteTier(@Param("tierId") tierId: string, @Req() req: AuthenticatedRequest) {
+    return this.events.deleteTier(tierId, req.staff!.userId, req.staff!.role);
   }
 }
 

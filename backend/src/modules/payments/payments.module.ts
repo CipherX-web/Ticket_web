@@ -450,11 +450,40 @@ export class PaymentsService {
       orderBy: { createdAt: "desc" },
     });
   }
+
+  async listAllPayments() {
+    const isSandbox = process.env.NODE_ENV !== "production" || process.env.PAYMENT_SANDBOX === "true";
+    const items = await this.prisma.payment.findMany({
+      include: {
+        booking: {
+          select: {
+            id: true,
+            reference: true,
+            buyerName: true,
+            buyerEmail: true,
+            buyerWhatsapp: true,
+            status: true,
+            event: { select: { id: true, title: true, startsAt: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 250,
+    });
+    return { isSandbox, provider: (process.env.PAYMENT_GATEWAY_PROVIDER ?? "PAYHERE").toUpperCase(), items };
+  }
 }
 
 @Controller("v1/payments")
 export class PaymentsController {
   constructor(private readonly payments: PaymentsService) {}
+
+  @Get("admin/list")
+  @UseGuards(StaffAuthGuard, RolesGuard)
+  @Roles("FINANCE_STAFF", "EVENT_MANAGER")
+  listAll() {
+    return this.payments.listAllPayments();
+  }
 
   @Get("pending-reconciliations")
   @UseGuards(StaffAuthGuard, RolesGuard)
