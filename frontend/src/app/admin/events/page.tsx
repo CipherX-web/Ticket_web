@@ -205,7 +205,7 @@ function EventsContent() {
           />
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
+            onChange={(e) => setStatusFilter(e.target.value as "ALL" | "PUBLISHED" | "DRAFT")}
             className="rounded-sm border border-line bg-ivory px-3 py-2 text-sm"
             aria-label="Filter by status"
           >
@@ -215,7 +215,7 @@ function EventsContent() {
           </select>
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
+            onChange={(e) => setSortBy(e.target.value as "DATE" | "TITLE" | "SOLD")}
             className="rounded-sm border border-line bg-ivory px-3 py-2 text-sm"
             aria-label="Sort events"
           >
@@ -359,7 +359,7 @@ function EventsContent() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-forest">Approval Mode</label>
-                <select value={cApproval} onChange={(e) => setCApproval(e.target.value as any)} className="mt-2 block w-full border border-line bg-ivory px-3 py-2.5 text-sm">
+                <select value={cApproval} onChange={(e) => setCApproval(e.target.value as "AUTOMATIC" | "MANUAL" | "HYBRID")} className="mt-2 block w-full border border-line bg-ivory px-3 py-2.5 text-sm">
                   <option value="AUTOMATIC">Automatic</option>
                   <option value="MANUAL">Manual</option>
                   <option value="HYBRID">Hybrid</option>
@@ -414,7 +414,7 @@ function EventsContent() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-forest">Approval Mode</label>
-                <select value={eApproval} onChange={(e) => setEApproval(e.target.value as any)} className="mt-2 block w-full border border-line bg-ivory px-3 py-2.5 text-sm">
+                <select value={eApproval} onChange={(e) => setEApproval(e.target.value as "AUTOMATIC" | "MANUAL" | "HYBRID")} className="mt-2 block w-full border border-line bg-ivory px-3 py-2.5 text-sm">
                   <option value="AUTOMATIC">Automatic</option>
                   <option value="MANUAL">Manual</option>
                   <option value="HYBRID">Hybrid</option>

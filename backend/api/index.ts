@@ -1,17 +1,11 @@
-import path from "node:path";
-import { register } from "tsconfig-paths";
-
-register({
-  baseUrl: path.resolve(__dirname, ".."),
-  paths: { "@/*": ["src/*"] },
-});
-
+import "./register-paths";
 import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { ExpressAdapter } from "@nestjs/platform-express";
 import cookieParser from "cookie-parser";
 import express, { type Express, type Request, type Response } from "express";
 import helmet from "helmet";
+import { AppModule } from "../src/app.module";
 import { SafeExceptionFilter } from "../src/common/http-exception.filter";
 
 let cachedServer: Express | null = null;
@@ -19,7 +13,6 @@ let cachedServer: Express | null = null;
 async function getServer(): Promise<Express> {
   if (cachedServer) return cachedServer;
 
-  const { AppModule } = await import("../src/app.module");
   const expressApp = express();
   const app = await NestFactory.create(AppModule, new ExpressAdapter(expressApp), { rawBody: true });
 
