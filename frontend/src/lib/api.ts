@@ -2,6 +2,9 @@ import type { Product } from "@/data/products";
 import type { EventItem } from "@/data/events";
 
 function getApiBase(): string {
+  if (typeof window === "undefined" && process.env.BACKEND_INTERNAL_URL) {
+    return `${process.env.BACKEND_INTERNAL_URL.replace(/\/$/, "")}/v1`;
+  }
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
   if (typeof window !== "undefined") return "/v1";
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}/v1`;
