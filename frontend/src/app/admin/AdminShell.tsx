@@ -180,43 +180,38 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
         {/* Dedicated Dark Studio Sidebar */}
         <aside
-          className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-studio text-white transition-transform lg:static lg:translate-x-0 ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+          className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-studio text-white transition-transform lg:static lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+            }`}
         >
           <div className="flex h-16 items-center justify-between border-b border-studio-line px-5">
-            <Link href="/admin" className="flex items-center gap-2.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-sm bg-accent font-display text-sm font-bold text-white">
-                PX
-              </span>
-              <div>
-                <p className="text-sm font-semibold tracking-wide text-white">PRINT X</p>
-                <p className="text-[10px] uppercase tracking-[0.18em] text-white/50">Admin Portal</p>
-              </div>
-            </Link>
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(false)}
-              className="text-white/60 hover:text-white lg:hidden"
-              aria-label="Close sidebar"
-            >
-              ✕
-            </button>
-          </div>
-
-          <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Admin navigation">
-            {NAV_ITEMS.map((item) => {
-              const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
+                <Link href="/admin" className="flex items-center gap-2.5 font-display text-lg tracking-[0.18em] text-white">
+                  <span className="inline-block h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
+                  <span>PRINT <span className="text-gold">X</span></span>
+                  <span className="ml-1 rounded-sm border border-studio-line bg-studio-panel px-1.5 py-0.5 font-sans text-[9px] uppercase tracking-widest text-white/70">
+                    Admin
+                  </span>
+                </Link>
+                <button
+                  type="button"
                   onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-3 rounded-sm px-3 py-2.5 text-sm font-medium transition-colors ${
-                    active
-                      ? "bg-accent text-white"
-                      : "text-white/75 hover:bg-studio-panel hover:text-white"
-                  }`}
+                  className="text-white/60 hover:text-white lg:hidden"
+                  aria-label="Close sidebar"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Admin navigation">
+                {NAV_ITEMS.map((item) => {
+                  const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setSidebarOpen(false)}
+                              ? "border-l-2 border-accent bg-studio-panel font-medium text-white"
+                              : "text-white/70 hover:bg-studio-panel/60 hover:text-white"
+                          }`}
                 >
                   <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                     <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />

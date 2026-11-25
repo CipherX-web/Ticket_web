@@ -44,9 +44,9 @@ export function StatCard({
 }) {
   return (
     <div className="rounded-sm border border-line bg-paper p-5">
-      <p className="text-xs font-medium uppercase tracking-wider text-muted">{label}</p>
-      <p className={`mt-2 font-display text-2xl font-semibold ${accent ? "text-accent" : "text-forest"}`}>{value}</p>
-      {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
+      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted">{label}</p>
+      <p className={`mt-2 font-display text-3xl ${accent ? "text-accent" : "text-forest"}`}>{value}</p>
+      {hint && <p className="mt-1.5 text-xs text-muted">{hint}</p>}
     </div>
   );
 }
