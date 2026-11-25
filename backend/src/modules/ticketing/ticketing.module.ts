@@ -351,11 +351,15 @@ export class TicketingService {
   // ── Staff Admin Endpoints ──────────────────────────────────────────────────
 
   listBookings(filters?: { eventId?: string; status?: string; q?: string }) {
+    const allowedStatuses = new Set(["PENDING_PAYMENT", "CONFIRMED", "PENDING_MANUAL_REVIEW", "CANCELLED", "REFUNDED"]);
+    if (filters?.status && !allowedStatuses.has(filters.status)) {
+      throw new BadRequestException("Invalid booking status filter.");
+    }
     const q = filters?.q?.trim();
     return this.prisma.ticketBooking.findMany({
       where: {
         ...(filters?.eventId && { eventId: filters.eventId }),
-        ...(filters?.status && { status: filters.status as any }),
+        ...(filters?.status && { status: filters.status as "PENDING_PAYMENT" | "CONFIRMED" | "PENDING_MANUAL_REVIEW" | "CANCELLED" | "REFUNDED" }),
         ...(q && {
           OR: [
             { reference: { contains: q, mode: "insensitive" } },
@@ -388,31 +392,39 @@ export class TicketingService {
   async cancelBooking(bookingId: string, staffId: string, staffRole: string) {
     const booking = await this.prisma.ticketBooking.findUnique({
       where: { id: bookingId },
-      include: { tickets: true },
+      include: { tickets: true, payments: true },
     });
     if (!booking) throw new NotFoundException("Booking not found.");
     if (booking.status === "CANCELLED" || booking.status === "REFUNDED") {
       throw new BadRequestException(`Booking is already ${booking.status}.`);
+    }
+    if (booking.payments.some((p) => p.status === "CAPTURED")) {
+      throw new BadRequestException("Cannot cancel a booking with a captured payment. Process a refund first.");
     }
     if (booking.tickets.some((t) => t.status === "CHECKED_IN")) {
       throw new BadRequestException("Cannot cancel a booking that already has checked-in tickets.");
     }
 
     return this.prisma.$transaction(async (tx) => {
-      await tx.ticketBooking.update({
-        where: { id: bookingId },
+      const updatedBooking = await tx.ticketBooking.updateMany({
+        where: { id: bookingId, status: { notIn: ["CANCELLED", "REFUNDED"] } },
         data: { status: "CANCELLED" },
       });
+      if (updatedBooking.count === 0) {
+        throw new ConflictException("Booking was already cancelled or refunded.");
+      }
 
       await tx.ticket.updateMany({
-        where: { bookingId },
+        where: { bookingId, status: "VALID" },
         data: { status: "CANCELLED" },
       });
 
-      // Restore tier availability counts
+      // Restore tier availability counts only for non-cancelled tickets
       const tierCounts = new Map<string, number>();
       for (const tk of booking.tickets) {
-        tierCounts.set(tk.tierId, (tierCounts.get(tk.tierId) ?? 0) + 1);
+        if (tk.status !== "CANCELLED") {
+          tierCounts.set(tk.tierId, (tierCounts.get(tk.tierId) ?? 0) + 1);
+        }
       }
       for (const [tierId, qty] of tierCounts.entries()) {
         await tx.ticketTier.update({
@@ -438,11 +450,15 @@ export class TicketingService {
   }
 
   listAttendees(filters?: { eventId?: string; tierId?: string; status?: string; q?: string }) {
+    const allowedStatuses = new Set(["VALID", "CHECKED_IN", "CANCELLED"]);
+    if (filters?.status && !allowedStatuses.has(filters.status)) {
+      throw new BadRequestException("Invalid ticket status filter.");
+    }
     const q = filters?.q?.trim();
     return this.prisma.ticket.findMany({
       where: {
         ...(filters?.tierId && { tierId: filters.tierId }),
-        ...(filters?.status && { status: filters.status as any }),
+        ...(filters?.status && { status: filters.status as "VALID" | "CHECKED_IN" | "CANCELLED" }),
         booking: {
           ...(filters?.eventId && { eventId: filters.eventId }),
           ...(q && {
